@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laser Chess RL Terminal - Aligned Color Grid</title>
+    <title>Laser Chess RL Terminal - Macro History Engine</title>
     <style>
         :root {
             --bg0: #0a0a0a;
@@ -114,7 +114,6 @@
             border-color: var(--green);
         }
 
-        /* PERFECTLY ALIGNED CSS GRAPHIC GRID */
         .board-container {
             display: flex;
             justify-content: center;
@@ -169,8 +168,8 @@
 <body>
 
     <header>
-        <h1>LASER CHESS RL - TRUE COLOR DISPLAY TERMINAL</h1>
-        <p>Automated Q-Learning iterations featuring aligned CSS Grid rendering and composite string crosschecking.</p>
+        <h1>LASER CHESS RL - EPISODE HISTORY ENGINE</h1>
+        <p>Monte Carlo update mechanics mapping rewards retroactively onto the entire game path following King Death.</p>
     </header>
 
     <div class="controls">
@@ -182,14 +181,14 @@
 
     <div class="container">
         <div class="panel">
-            <div class="panel-title">🟢 LIVE COLOR VIEWPORT</div>
+            <div class="panel-title">🟢 LIVE ENVIRONMENT COLOR VIEWPORT</div>
             <div class="dashboard">
                 <div class="stat-box">
                     <div>Matches Played</div>
                     <div id="stat-matches" class="stat-val">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Active Phase</div>
+                    <div>Active Turn Instance</div>
                     <div id="stat-turn" class="stat-val"><span class="p-blue">BLUE</span></div>
                 </div>
                 <div class="stat-box">
@@ -208,26 +207,26 @@
         </div>
 
         <div class="panel">
-            <div class="panel-title">💾 COMPOSITE REINFORCEMENT ENGINE KEY LOG</div>
+            <div class="panel-title">💾 RETROACTIVE GAME HISTORY KEY LOG</div>
             <div class="dashboard">
                 <div class="stat-box">
-                    <div>Model A States</div>
+                    <div>Model A Unique States</div>
                     <div id="stat-q-a" class="stat-val">0 keys</div>
                 </div>
                 <div class="stat-box">
-                    <div>Model B States</div>
+                    <div>Model B Unique States</div>
                     <div id="stat-q-b" class="stat-val">0 keys</div>
                 </div>
                 <div class="stat-box">
-                    <div>Exploration Rate (&epsilon;)</div>
-                    <div id="stat-epsilon" class="stat-val">0.15</div>
+                    <div>Active Game Steps</div>
+                    <div id="stat-steps" class="stat-val">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Allocation Value Trace</div>
+                    <div>Macro-Reward Trace</div>
                     <div id="stat-reward" class="stat-val">0</div>
                 </div>
             </div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Active Table Backpropagation Log:</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Macro History Backpropagation Updates:</div>
             <div class="log-box" id="ql-log"></div>
         </div>
     </div>
@@ -317,13 +316,12 @@
             laserPath: []
         };
 
-        // --- SEPARATE INDEPENDENT Q-TABLE RESERVOIRS ---
+        // --- Q-TABLE DATA SYSTEMS ---
         let Q_TABLE_A = {}; 
         let Q_TABLE_B = {}; 
 
-        const ALPHA = 0.2;
-        const GAMMA = 0.9;
-        const EPSILON = 0.15;
+        const ALPHA = 0.15; // Learning Rate
+        const EPSILON = 0.15; // Exploration Rate
 
         let matchesCount = 0;
         let modelAWins = 0;
@@ -333,9 +331,8 @@
         let loopDelay = 50; 
         let isRunning = true;
 
-        // Trace vectors for proper multi-agent multi-step backpropagation updates
-        let modelATrace = { state: null, action: null };
-        let modelBTrace = { state: null, action: null };
+        // THE MEGA-STATE ARRAY LOG: Stores every move made throughout the active game match
+        let gameHistoryTrace = [];
 
         function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
         function getPieceAt(pieces, x, y) { return pieces.find(p => p.x === x && p.y === y) || null; }
@@ -343,7 +340,7 @@
             return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); 
         }
 
-        // --- STRATIFIED CROSSCHECK LOOKUP ENGINE ---
+        // --- DUAL-MATRIX STATE STRING CONCATENATION ENGINE ---
         function generateRLStateKey(pieces, turn) {
             let geometryASCII = "";
             let ownershipASCII = "";
@@ -369,7 +366,7 @@
             return `${geometryASCII.trim()}\n[MAP]\n${ownershipASCII.trim()}\n[T:${extraDigit}]`;
         }
 
-        // --- LASER TRAJECTORY RAYTRACER ---
+        // --- TRAJECTORY RAYTRACER ---
         function resolveLaserVector(pieces) {
             const shooter = pieces.find(p => p.pieceType === 'LASER' && p.color === gameState.turn);
             if (!shooter) return { path: [], hit: null };
@@ -408,7 +405,7 @@
             return { path, hit: null };
         }
 
-        // --- ACTION DISCOVERY ENGINE ---
+        // --- DISCOVERY VALIDATOR ---
         function getLegalActions(color, pieces) {
             let actions = [{ type: 'FIRE' }];
 
@@ -457,7 +454,6 @@
             return "UNKNOWN";
         }
 
-        // --- Q-VALUES MATRIX LOOKUPS ---
         function getQValue(model, state, actionStr) {
             const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
             if (!table[state]) return 0.0;
@@ -471,39 +467,47 @@
             table[state][actionStr] = val;
         }
 
-        function getMaxQ(model, state) {
-            const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
-            if (!table[state]) return 0.0;
-            let maxVal = -Infinity;
-            let hasKeys = false;
-            for (const act in table[state]) {
-                hasKeys = true;
-                if (table[state][act] > maxVal) maxVal = table[state][act];
+        // --- MONTE CARLO RETROACTIVE BACKPROPAGATOR ---
+        function backpropagateEntireGameHistory(winningModel) {
+            let sampleLogged = false;
+
+            for (const record of gameHistoryTrace) {
+                let targetReward = 0;
+                
+                if (winningModel === 'DRAW') {
+                    targetReward = 0;
+                } else {
+                    // Assign explicit absolute rewards depending on match alliance results
+                    if (record.model === winningModel) {
+                        targetReward = 1000;
+                    } else {
+                        targetReward = -1000;
+                    }
+                }
+
+                const oldQ = getQValue(record.model, record.state, record.action);
+                // Direct updates applied straight to the recorded keys without step decay lookaheads
+                const newQ = oldQ + ALPHA * (targetReward - oldQ);
+                setQValue(record.model, record.state, record.action, newQ);
+
+                // Print the last transaction trace step directly inside logs
+                if (!sampleLogged) {
+                    logQHistoryUpdate(record.model, record.state, record.action, targetReward, newQ, gameHistoryTrace.length);
+                    sampleLogged = true;
+                }
             }
-            return hasKeys ? maxVal : 0.0;
         }
 
-        // --- CORE REINFORCEMENT LEARNING EXECUTION STEP ---
+        // --- CORE RUNTIME ACTION BLOCK ---
         function stepSimulation() {
             const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            const opposingModel = (currentModel === 'A') ? 'B' : 'A';
-            const currentTrace = (currentModel === 'A') ? modelATrace : modelBTrace;
 
-            // 1. Snapshot board configuration key string
+            // 1. Map snapshot matrix key
             const currentStateKey = generateRLStateKey(gameState.pieces, gameState.turn);
-
-            // 2. Multi-step backpropagation lookahead logic
-            if (currentTrace.state && currentTrace.action) {
-                const oldQ = getQValue(currentModel, currentTrace.state, currentTrace.action);
-                const nextMax = getMaxQ(currentModel, currentStateKey);
-                const updatedVal = oldQ + ALPHA * (0 + (GAMMA * nextMax) - oldQ);
-                setQValue(currentModel, currentTrace.state, currentTrace.action, updatedVal);
-            }
-
-            // 3. Selection action policy choices
             const legalActs = getLegalActions(gameState.turn, gameState.pieces);
+            
+            // 2. Choose path via exploration selection
             let selectedAction = null;
-
             if (Math.random() < EPSILON) {
                 selectedAction = legalActs[Math.floor(Math.random() * legalActs.length)];
             } else {
@@ -523,10 +527,15 @@
             }
 
             const chosenActionStr = stringifyAction(selectedAction);
-            currentTrace.state = currentStateKey;
-            currentTrace.action = chosenActionStr;
 
-            // 4. Mutate Board Position Environment State
+            // 3. PUSH STEP TO THE MEGA-STATE GAME HISTORY TRACE
+            gameHistoryTrace.push({
+                model: currentModel,
+                state: currentStateKey,
+                action: chosenActionStr
+            });
+
+            // 4. Transform Environment Matrix
             if (selectedAction.type === 'MOVE') {
                 const targetPiece = getPieceAt(gameState.pieces, selectedAction.tx, selectedAction.ty);
                 const movingPiece = getPieceAt(gameState.pieces, selectedAction.fx, selectedAction.fy);
@@ -543,7 +552,7 @@
                 if (p) p.rotation = (p.rotation + selectedAction.dir + 4) % 4;
             }
 
-            // 5. Fire Trajectory Laser Paths
+            // 5. Fire Firing Sequences
             const calculation = resolveLaserVector(gameState.pieces);
             gameState.laserPath = calculation.path;
 
@@ -562,43 +571,28 @@
                 terminalStatus = 'DRAW';
             }
 
-            // 6. Terminal Absolute Reward Calculation (+1000 / -1000)
+            // 6. TRIGGER POINT: EVALUATE ABSOLUTE REWARD HISTORIES ONCE KING DEATH OCCURS
             if (terminalStatus) {
                 matchesCount++;
                 if (terminalStatus === 'WIN_A') {
                     modelAWins++;
-                    // Winner A gets +1000
-                    const oldQA = getQValue('A', modelATrace.state, modelATrace.action);
-                    setQValue('A', modelATrace.state, modelATrace.action, oldQA + ALPHA * (1000 - oldQA));
-                    // Loser B gets -1000
-                    if (modelBTrace.state && modelBTrace.action) {
-                        const oldQB = getQValue('B', modelBTrace.state, modelBTrace.action);
-                        setQValue('B', modelBTrace.state, modelBTrace.action, oldQB + ALPHA * (-1000 - oldQB));
-                    }
-                    logEvent(`MATCH #${matchesCount}: Model A (Blue/1) WINS. King Destroyed.`, modelATrace.state, modelATrace.action, 1000);
+                    backpropagateEntireGameHistory('A');
+                    logMatchTermination(`MATCH #${matchesCount}: Model A (Blue) WINS. King Destroyed. Updates dispatched across entire history trace.`);
+                    updateDashboardReward("+1000");
                 } else if (terminalStatus === 'WIN_B') {
                     modelBWins++;
-                    // Winner B gets +1000
-                    const oldQB = getQValue('B', modelBTrace.state, modelBTrace.action);
-                    setQValue('B', modelBTrace.state, modelBTrace.action, oldQB + ALPHA * (1000 - oldQB));
-                    // Loser A gets -1000
-                    if (modelATrace.state && modelATrace.action) {
-                        const oldQA = getQValue('A', modelATrace.state, modelATrace.action);
-                        setQValue('A', modelATrace.state, modelATrace.action, oldQA + ALPHA * (-1000 - oldQA));
-                    }
-                    logEvent(`MATCH #${matchesCount}: Model B (Red/0) WINS. King Destroyed.`, modelBTrace.state, modelBTrace.action, 1000);
+                    backpropagateEntireGameHistory('B');
+                    logMatchTermination(`MATCH #${matchesCount}: Model B (Red) WINS. King Destroyed. Updates dispatched across entire history trace.`);
+                    updateDashboardReward("-1000");
                 } else {
-                    logEvent(`MATCH #${matchesCount}: DRAW (Step limits exhausted)`, modelATrace.state, modelATrace.action, 0);
+                    backpropagateEntireGameHistory('DRAW');
+                    logMatchTermination(`MATCH #${matchesCount}: DRAW. Limits hit.`);
+                    updateDashboardReward("0");
                 }
-                updateDashboardReward(terminalStatus === 'WIN_A' ? "+1000" : "-1000");
                 resetEnvironment();
             } else {
-                // Pass configuration turns
+                // Switch execution sequence control lines
                 gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
-                if (Math.random() < 0.02) {
-                    const currentQ = getQValue(currentModel, currentTrace.state, currentTrace.action);
-                    logQUpdate(currentModel, currentTrace.state, currentTrace.action, 0, currentQ);
-                }
             }
 
             renderView();
@@ -609,11 +603,10 @@
             gameState.turn = "BLUE";
             gameState.stepCount = 0;
             gameState.laserPath = [];
-            modelATrace = { state: null, action: null };
-            modelBTrace = { state: null, action: null };
+            gameHistoryTrace = []; // Wipe history tracing stack clean for next match
         }
 
-        // --- HTML CELL DOM RENDERING ---
+        // --- GRAPHICS & PANEL HOOK RENDERERS ---
         const gridEl = document.getElementById('viewport-grid');
         const statMatches = document.getElementById('stat-matches');
         const statTurn = document.getElementById('stat-turn');
@@ -621,12 +614,12 @@
         const statWinsB = document.getElementById('stat-wins-b');
         const statQA = document.getElementById('stat-q-a');
         const statQB = document.getElementById('stat-q-b');
+        const statSteps = document.getElementById('stat-steps');
         const statReward = document.getElementById('stat-reward');
         const qlLog = document.getElementById('ql-log');
 
         function renderView() {
             gridEl.innerHTML = "";
-            // Render coordinates from top down (y = 7 down to 0)
             for (let y = 7; y >= 0; y--) {
                 for (let x = 0; x < 10; x++) {
                     const cell = document.createElement('div');
@@ -651,32 +644,34 @@
             statTurn.innerHTML = gameState.turn === 'BLUE' ? '<span class="p-blue">BLUE (Model A)</span>' : '<span class="p-red">RED (Model B)</span>';
             statWinsA.textContent = modelAWins;
             statWinsB.textContent = modelBWins;
-            statQA.textContent = `${Object.keys(Q_TABLE_A).length} states`;
-            statQB.textContent = `${Object.keys(Q_TABLE_B).length} states`;
+            statQA.textContent = `${Object.keys(Q_TABLE_A).length}`;
+            statQB.textContent = `${Object.keys(Q_TABLE_B).length}`;
+            statSteps.textContent = gameHistoryTrace.length;
         }
 
         function updateDashboardReward(rewardText) {
             statReward.textContent = rewardText;
-            statReward.style.color = rewardText.includes("+") ? "var(--green)" : "var(--red)";
+            if (rewardText === "0") statReward.style.color = "var(--text)";
+            else statReward.style.color = rewardText.includes("+") ? "var(--green)" : "var(--red)";
         }
 
-        function logEvent(msg, state, action, reward) {
+        function logMatchTermination(msg) {
             const entry = document.createElement('div');
             entry.className = "log-entry";
             entry.style.color = "var(--yellow)";
-            entry.innerHTML = `⚡ <b>[System]: ${msg}</b><br>[Action: ${action}] [Reward: ${reward}]<br><span style="color:#00ffcc;">Verbatim Terminal State Copy Matrix:</span><br>${state}`;
+            entry.innerHTML = `💀 <b>[King Death Event]: ${msg}</b>`;
             qlLog.appendChild(entry);
         }
 
-        function logQUpdate(model, state, action, reward, value) {
+        function logQHistoryUpdate(model, state, action, reward, value, historyCount) {
             const entry = document.createElement('div');
             entry.className = "log-entry";
-            entry.innerHTML = `🏁 <b>Model ${model} Dynamic Step:</b> [Action: ${action}] [Q: ${value.toFixed(4)}]<br><span style="color:var(--green);">Verbatim Terminal State Copy Matrix:</span><br><span style="color:#888;">${state}</span>`;
+            entry.innerHTML = `⚡ <b>History Trace Backprop:</b> Applied ${reward > 0 ? '+'+reward : reward} directly to all ${historyCount} positions.<br><b>Sample Model ${model} State Node:</b> [Action: ${action}] -> [New Meta Q: ${value.toFixed(4)}]<br><span style="color:var(--green);">Active Board Composite Key Structure:</span><br><span style="color:#777; font-size:10px;">${state.replace(/\n/g, '<br>')}</span>`;
             qlLog.appendChild(entry);
-            if (qlLog.childNodes.length > 25) qlLog.removeChild(qlLog.firstChild);
+            if (qlLog.childNodes.length > 20) qlLog.removeChild(qlLog.firstChild);
         }
 
-        // --- MANAGEMENT EVENT LISTENERS ---
+        // --- BUTTON HANDLER MANAGEMENT INTERFACES ---
         const btnToggle = document.getElementById('btn-toggle');
         const btnSpeed = document.getElementById('btn-speed');
         const btnDownload = document.getElementById('btn-download');
@@ -709,7 +704,7 @@
         });
 
         btnReset.addEventListener('click', () => {
-            if (confirm("Erase all Q-Tables and performance histories?")) {
+            if (confirm("Clear macro lookup tables?")) {
                 Q_TABLE_A = {}; Q_TABLE_B = {};
                 matchesCount = 0; modelAWins = 0; modelBWins = 0;
                 resetEnvironment(); renderView(); qlLog.innerHTML = "";
@@ -719,12 +714,12 @@
 
         btnDownload.addEventListener('click', () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
-                metadata: { engine: "True Color Aligned Grid QL V3", matches: matchesCount, winsA: modelAWins, winsB: modelBWins },
-                tables: { model_A_blue_data: Q_TABLE_A, model_B_red_data: Q_TABLE_B }
+                metadata: { engine: "Monte Carlo Macro History Match QL V4", matches: matchesCount, winsA: modelAWins, winsB: modelBWins },
+                tables: { model_A_blue_macro: Q_TABLE_A, model_B_red_macro: Q_TABLE_B }
             }, null, 2));
             const dl = document.createElement('a');
             dl.setAttribute("href", dataStr);
-            dl.setAttribute("download", `aligned_laser_chess_data_${matchesCount}.json`);
+            dl.setAttribute("download", `macro_history_laser_chess_data.json`);
             dl.click();
             dl.remove();
         });

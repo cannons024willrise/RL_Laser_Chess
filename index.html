@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laser Chess RL Terminal - Q-Learning Engine</title>
+    <title>Laser Chess RL Terminal - Crosscheck State Matrix</title>
     <style>
         :root {
             --bg0: #0a0a0a;
@@ -35,7 +35,7 @@
         h1 {
             color: var(--bright);
             margin: 0;
-            font-size: 24px;
+            font-size: 22px;
         }
 
         .container {
@@ -44,7 +44,7 @@
             gap: 20px;
         }
 
-        @media (max-width: 1000px) {
+        @media (max-width: 1100px) {
             .container {
                 grid-template-columns: 1fr;
             }
@@ -63,8 +63,6 @@
             margin-bottom: 10px;
             border-bottom: 1px dashed var(--border);
             padding-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
         }
 
         .dashboard {
@@ -117,7 +115,8 @@
 
         .board-wrapper {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
             background: var(--bg0);
             padding: 15px;
             border: 1px solid var(--border);
@@ -125,8 +124,8 @@
 
         pre {
             margin: 0;
-            line-height: 1.3;
-            font-size: 16px;
+            line-height: 1.2;
+            font-size: 15px;
         }
 
         .p-blue { color: var(--blue); }
@@ -136,27 +135,27 @@
         .log-box {
             background: var(--bg0);
             border: 1px solid var(--border);
-            height: 300px;
+            height: 400px;
             overflow-y: scroll;
             padding: 10px;
-            font-size: 12px;
+            font-size: 11px;
             display: flex;
             flex-direction: column-reverse;
         }
 
         .log-entry {
-            margin-bottom: 4px;
+            margin-bottom: 8px;
             white-space: pre-wrap;
-            border-bottom: 1px solid #111;
-            padding-bottom: 4px;
+            border-bottom: 1px solid #222;
+            padding-bottom: 8px;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>LASER CHESS RL BENCHMARK - THINKFUN ENGINE</h1>
-        <p>Independent self-play Q-Learning iteration loop running completely local.</p>
+        <h1>LASER CHESS RL - CROSSCHECK MATRIX STATE ENGINE</h1>
+        <p>Independent self-play Q-Learning using a composite Geometry-Ownership ASCII lookup key.</p>
     </header>
 
     <div class="controls">
@@ -168,32 +167,34 @@
 
     <div class="container">
         <div class="panel">
-            <div class="panel-title">🟢 LIVE ENVIRONMENT SIMULATOR</div>
+            <div class="panel-title">🟢 LIVE ENVIRONMENT INTERFACE</div>
             <div class="dashboard">
                 <div class="stat-box">
                     <div>Matches Played</div>
                     <div id="stat-matches" class="stat-val">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Current Turn / Phase</div>
+                    <div>Active Turn Instance</div>
                     <div id="stat-turn" class="stat-val"><span class="p-blue">BLUE</span></div>
                 </div>
                 <div class="stat-box">
-                    <div>Model A Wins (Blue)</div>
+                    <div>Model A Wins (Blue / 1)</div>
                     <div id="stat-wins-a" class="stat-val p-blue">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Model B Wins (Red)</div>
+                    <div>Model B Wins (Red / 0)</div>
                     <div id="stat-wins-b" class="stat-val p-red">0</div>
                 </div>
             </div>
+            
             <div class="board-wrapper">
-                <pre id="ascii-board">Initializing Board...</pre>
+                <div style="font-weight:bold; color:var(--bright);">Visual Viewport (With Raytrace):</div>
+                <pre id="ascii-board-view">Initializing View...</pre>
             </div>
         </div>
 
         <div class="panel">
-            <div class="panel-title">💾 QL REINFORCEMENT LEARNING LOG</div>
+            <div class="panel-title">💾 CROSSCHECKED STATE KEY LOG</div>
             <div class="dashboard">
                 <div class="stat-box">
                     <div>Model A Q-Table Keys</div>
@@ -212,7 +213,7 @@
                     <div id="stat-reward" class="stat-val">0</div>
                 </div>
             </div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Active Q-Table State Key Log:</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Active Q-Table State Updates:</div>
             <div class="log-box" id="ql-log"></div>
         </div>
     </div>
@@ -221,7 +222,7 @@
     (() => {
         'use strict';
 
-        // --- GAME ENVIRONMENT SPECIFICATIONS ---
+        // --- GAME ENVIRONMENT CONFIGURATIONS ---
         const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
         const ROTATION_SYMBOLS = { 
             KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' }, 
@@ -267,14 +268,13 @@
             }
         };
 
-        // --- INITIAL STATE ---
         const INITIAL_PIECES = [
             {pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
             {pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
-            {pieceType: "DEFENDER", color: "RED", rotation: 0, x: 4, y: 7},
+            {pieceType: "DEFENDER", color: "RED", rotation: 2, x: 4, y: 7},
             {pieceType: "DEFENDER", color: "RED", rotation: 2, x: 6, y: 7},
-            {pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 5, y: 0},
-            {pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 3, y: 0},
+            {pieceType: "DEFENDER", color: "BLUE", rotation: 0, x: 5, y: 0},
+            {pieceType: "DEFENDER", color: "BLUE", rotation: 0, x: 3, y: 0},
             {pieceType: "SWITCH", color: "BLUE", rotation: 0, x: 5, y: 3},
             {pieceType: "SWITCH", color: "BLUE", rotation: 1, x: 4, y: 3},
             {pieceType: "SWITCH", color: "RED", rotation: 0, x: 4, y: 4},
@@ -304,41 +304,63 @@
             laserPath: []
         };
 
-        // --- RL MODEL MEMORY RESERVOIRS ---
-        // Identical implementation models with distinct separate objects
-        let Q_TABLE_A = {}; // Model A Memory Space (Blue)
-        let Q_TABLE_B = {}; // Model B Memory Space (Red)
+        // --- MODEL TABLES ---
+        let Q_TABLE_A = {}; // Model A Profile (Blue / 1)
+        let Q_TABLE_B = {}; // Model B Profile (Red / 0)
 
-        // Hyperparameters
-        const ALPHA = 0.2;     // Learning Rate
-        const GAMMA = 0.9;     // Discount Factor
-        let EPSILON = 0.15;    // Exploration Ratio
+        const ALPHA = 0.2;
+        const GAMMA = 0.9;
+        const EPSILON = 0.15;
 
-        // Statistics
         let matchesCount = 0;
         let modelAWins = 0;
         let modelBWins = 0;
 
-        // Loop Configuration
         let autoPlayInterval = null;
-        let loopDelay = 50; // ms
+        let loopDelay = 50; 
         let isRunning = true;
 
-        // Last move markers for Q-learning updates
         let modelALastState = null;
         let modelALastAction = null;
         let modelBLastState = null;
         let modelBLastAction = null;
 
-        // --- BOARD UTILITIES ---
         function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
         function getPieceAt(pieces, x, y) { return pieces.find(p => p.x === x && p.y === y) || null; }
         function isReservedSquare(x, y, color) { 
             return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); 
         }
 
-        // --- DIRECT BOARD COPY TO ASCII LOGGER ---
-        function generateBoardASCII(pieces, path = []) {
+        // --- CRITICAL CRADLE: COMPOSITE CROSSCHECK REPRESENTATION ENGINE ---
+        function generateRLStateKey(pieces, turn) {
+            let geometryASCII = "";
+            let ownershipASCII = "";
+
+            for (let y = 7; y >= 0; y--) {
+                let geoRow = "";
+                let ownRow = "";
+                for (let x = 0; x < 10; x++) {
+                    const piece = getPieceAt(pieces, x, y);
+                    if (piece) {
+                        geoRow += ROTATION_SYMBOLS[piece.pieceType][piece.rotation];
+                        ownRow += (piece.color === 'BLUE' ? '1' : '0');
+                    } else {
+                        geoRow += ".";
+                        ownRow += ".";
+                    }
+                }
+                geometryASCII += geoRow + "\n";
+                ownershipASCII += ownRow + "\n";
+            }
+
+            const extraDigit = (turn === "BLUE" ? "1" : "0");
+
+            // Crosscheck into one unified multi-layer state string block
+            return `${geometryASCII.trim()}\n[MAP]\n${ownershipASCII.trim()}\n[T:${extraDigit}]`;
+        }
+
+        // Human-friendly visualization renderer
+        function generateViewportDisplay(pieces, path = []) {
             let layout = "";
             for (let y = 7; y >= 0; y--) {
                 let rowStr = "";
@@ -346,14 +368,10 @@
                     const piece = getPieceAt(pieces, x, y);
                     if (piece) {
                         const symbol = ROTATION_SYMBOLS[piece.pieceType][piece.rotation];
-                        rowStr += (piece.color === 'BLUE' ? 'B' : 'R') + symbol;
+                        rowStr += (piece.color === 'BLUE' ? 'B' : 'R') + symbol + " ";
                     } else {
                         const pathSeg = path.find(p => p.x === x && p.y === y);
-                        if (pathSeg) {
-                            rowStr += ' *';
-                        } else {
-                            rowStr += ' .';
-                        }
+                        rowStr += pathSeg ? "* " : ".  ";
                     }
                 }
                 layout += rowStr + "\n";
@@ -361,24 +379,20 @@
             return layout.trim();
         }
 
-        // --- LASER TRAJECTORY RAYTRACER ---
+        // --- LASER RAYTRACER ---
         function resolveLaserVector(pieces) {
             const shooter = pieces.find(p => p.pieceType === 'LASER' && p.color === gameState.turn);
             if (!shooter) return { path: [], hit: null };
 
-            let x = shooter.x;
-            let y = shooter.y;
+            let x = shooter.x + DIRS[shooter.rotation].dx;
+            let y = shooter.y + DIRS[shooter.rotation].dy;
             let dir = shooter.rotation;
             let path = [];
             let seen = new Set();
 
-            // Step out of the shooter barrel
-            x += DIRS[dir].dx;
-            y += DIRS[dir].dy;
-
             while (inBounds(x, y)) {
                 const stateKey = `${x},${y},${dir}`;
-                if (seen.has(stateKey)) return { path, hit: null }; // Loop protection
+                if (seen.has(stateKey)) return { path, hit: null };
                 seen.add(stateKey);
                 path.push({ x, y, dir });
 
@@ -395,12 +409,8 @@
                         y += DIRS[dir].dy;
                         continue;
                     }
-                    if (outcome.action === 'block') {
-                        return { path, hit: { piece, destroyed: false } };
-                    }
-                    if (outcome.action === 'destroy') {
-                        return { path, hit: { piece, destroyed: true } };
-                    }
+                    if (outcome.action === 'block') return { path, hit: { piece, destroyed: false } };
+                    if (outcome.action === 'destroy') return { path, hit: { piece, destroyed: true } };
                 }
                 x += DIRS[dir].dx;
                 y += DIRS[dir].dy;
@@ -408,35 +418,29 @@
             return { path, hit: null };
         }
 
-        // --- ACTION SPACE DISCOVERY ENGINE ---
+        // --- LEGAL ACTION GENERATOR ---
         function getLegalActions(color, pieces) {
-            let actions = [];
-            // Strategy Default fallback action: Stand ground and fire
-            actions.push({ type: 'FIRE' });
+            let actions = [{ type: 'FIRE' }];
 
             for (const p of pieces) {
                 if (p.color !== color) continue;
 
                 if (p.pieceType !== 'LASER') {
-                    // Rotations
                     if (p.pieceType !== 'KING') {
-                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 });  // CW
-                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); // CCW
+                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 });  
+                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); 
                     }
-                    // Relocations
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             if (dx === 0 && dy === 0) continue;
                             const nx = p.x + dx;
                             const ny = p.y + dy;
-                            if (!inBounds(nx, ny)) continue;
-                            if (isReservedSquare(nx, ny, color)) continue;
+                            if (!inBounds(nx, ny) || isReservedSquare(nx, ny, color)) continue;
 
                             const target = getPieceAt(pieces, nx, ny);
                             if (!target) {
                                 actions.push({ type: 'MOVE', fx: p.x, fy: p.y, tx: nx, ty: ny });
                             } else if (p.pieceType === 'SWITCH' && (target.pieceType === 'DEFLECTOR' || target.pieceType === 'DEFENDER')) {
-                                // Swap Qualification Validation
                                 if (!isReservedSquare(p.x, p.y, target.color)) {
                                     actions.push({ type: 'MOVE', fx: p.x, fy: p.y, tx: nx, ty: ny });
                                 }
@@ -444,13 +448,12 @@
                         }
                     }
                 } else {
-                    // Lasers can pivot constraints
                     if (color === 'BLUE') {
-                        if (p.rotation === 0) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 3 }); // To 3
-                        if (p.rotation === 3) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -3 }); // To 0
+                        if (p.rotation === 0) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 3 }); 
+                        if (p.rotation === 3) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -3 }); 
                     } else {
-                        if (p.rotation === 1) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 }); // To 2
-                        if (p.rotation === 2) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); // To 1
+                        if (p.rotation === 1) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 }); 
+                        if (p.rotation === 2) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); 
                     }
                 }
             }
@@ -464,7 +467,7 @@
             return "UNKNOWN";
         }
 
-        // --- RL REINFORCEMENT LEARNING LOGIC ---
+        // --- QL LOOKUPS ---
         function getQValue(model, state, actionStr) {
             const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
             if (!table[state]) return 0.0;
@@ -490,16 +493,16 @@
             return hasKeys ? maxVal : 0.0;
         }
 
-        // --- CORE ENVIRONMENT ADVANCEMENT TURN STEP ---
+        // --- CYCLE EXECUTION ---
         function stepSimulation() {
             const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
             const opposingModel = (currentModel === 'A') ? 'B' : 'A';
 
-            // 1. Snapshot board state key string
-            const stateString = generateBoardASCII(gameState.pieces, []);
+            // 1. Generate new crosschecked composite state key
+            const currentStateKey = generateRLStateKey(gameState.pieces, gameState.turn);
             const legalActs = getLegalActions(gameState.turn, gameState.pieces);
             
-            // 2. Epsilon-Greedy choice policy selection
+            // 2. Select policy choice
             let selectedAction = null;
             if (Math.random() < EPSILON) {
                 selectedAction = legalActs[Math.floor(Math.random() * legalActs.length)];
@@ -508,7 +511,7 @@
                 let candidates = [];
                 for (const act of legalActs) {
                     const actStr = stringifyAction(act);
-                    const q = getQValue(currentModel, stateString, actStr);
+                    const q = getQValue(currentModel, currentStateKey, actStr);
                     if (q > bestQ) {
                         bestQ = q;
                         candidates = [act];
@@ -521,21 +524,20 @@
 
             const chosenActionStr = stringifyAction(selectedAction);
 
-            // Save trace markers for temporal updates
+            // Commit tracking trace markers
             if (currentModel === 'A') {
-                modelALastState = stateString;
+                modelALastState = currentStateKey;
                 modelALastAction = chosenActionStr;
             } else {
-                modelBLastState = stateString;
+                modelBLastState = currentStateKey;
                 modelBLastAction = chosenActionStr;
             }
 
-            // 3. Execution/Mutation changes applied to environment
+            // 3. Mutate Board
             if (selectedAction.type === 'MOVE') {
                 const targetPiece = getPieceAt(gameState.pieces, selectedAction.tx, selectedAction.ty);
                 const movingPiece = getPieceAt(gameState.pieces, selectedAction.fx, selectedAction.fy);
                 if (targetPiece && movingPiece && movingPiece.pieceType === 'SWITCH') {
-                    // Position Switch swap execution
                     targetPiece.x = selectedAction.fx;
                     targetPiece.y = selectedAction.fy;
                 }
@@ -548,11 +550,11 @@
                 if (p) p.rotation = (p.rotation + selectedAction.dir + 4) % 4;
             }
 
-            // 4. Laser Raytrace and destruction calculation
+            // 4. Resolve Firing Trajectory
             const calculation = resolveLaserVector(gameState.pieces);
             gameState.laserPath = calculation.path;
 
-            let terminalStatus = null; // 'WIN_A', 'WIN_B', 'DRAW'
+            let terminalStatus = null;
 
             if (calculation.hit && calculation.hit.destroyed) {
                 const victim = calculation.hit.piece;
@@ -567,47 +569,40 @@
                 terminalStatus = 'DRAW';
             }
 
-            // 5. Backpropagation Rewards Assignment Mapping
+            // 5. Backpropagate Absolute Rewards (+1000 / -1000)
             if (terminalStatus) {
                 matchesCount++;
                 if (terminalStatus === 'WIN_A') {
                     modelAWins++;
-                    // Winner A gets +1000
-                    updateQ(currentModel, stateString, chosenActionStr, 1000, true, null);
-                    // Loser B gets -1000
+                    updateQ('A', modelALastState, modelALastAction, 1000, true, null);
                     if (modelBLastState && modelBLastAction) {
                         updateQ('B', modelBLastState, modelBLastAction, -1000, true, null);
                     }
-                    logEvent(`MATCH #${matchesCount}: Model A (Blue) WINS. King Destroyed.`);
+                    logEvent(`MATCH #${matchesCount}: Model A (Blue/1) WINS. King Destroyed.`);
                 } else if (terminalStatus === 'WIN_B') {
                     modelBWins++;
-                    // Winner B gets +1000
-                    updateQ(currentModel, stateString, chosenActionStr, 1000, true, null);
-                    // Loser A gets -1000
+                    updateQ('B', modelBLastState, modelBLastAction, 1000, true, null);
                     if (modelALastState && modelALastAction) {
                         updateQ('A', modelALastState, modelALastAction, -1000, true, null);
                     }
-                    logEvent(`MATCH #${matchesCount}: Model B (Red) WINS. King Destroyed.`);
+                    logEvent(`MATCH #${matchesCount}: Model B (Red/0) WINS. King Destroyed.`);
                 } else {
-                    // Draw step ceiling cutoff limit reached
                     updateQ('A', modelALastState, modelALastAction, 0, true, null);
                     updateQ('B', modelBLastState, modelBLastAction, 0, true, null);
-                    logEvent(`MATCH #${matchesCount}: DRAW (Step limits exhausted)`);
+                    logEvent(`MATCH #${matchesCount}: DRAW (Turn Cap Exhausted)`);
                 }
                 updateDashboardReward(terminalStatus === 'WIN_A' ? "+1000" : "-1000");
                 resetEnvironment();
             } else {
-                // Non-terminal move step. Compute passing update
-                const nextStateString = generateBoardASCII(gameState.pieces, []);
-                updateQ(currentModel, stateString, chosenActionStr, 0, false, nextStateString);
-                // Rotate Turn active components
+                // Non-terminal transitional step update
+                const nextStateKey = generateRLStateKey(gameState.pieces, gameState.turn === 'BLUE' ? 'RED' : 'BLUE');
+                updateQ(currentModel, currentStateKey, chosenActionStr, 0, false, nextStateKey);
                 gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
             }
 
             renderView();
         }
 
-        // Standard Q-Value optimization algorithm function
         function updateQ(model, state, action, reward, isTerminal, nextState) {
             const oldQ = getQValue(model, state, action);
             let nextMax = 0.0;
@@ -617,8 +612,8 @@
             const updatedVal = oldQ + ALPHA * (reward + (GAMMA * nextMax) - oldQ);
             setQValue(model, state, action, updatedVal);
             
-            // Output sample state frame logs
-            if (Math.random() < 0.05 || isTerminal) {
+            // Push update verification frames to tracking terminal
+            if (Math.random() < 0.03 || isTerminal) {
                 logQUpdate(model, state, action, reward, updatedVal);
             }
         }
@@ -632,8 +627,8 @@
             modelBLastState = null; modelBLastAction = null;
         }
 
-        // --- INTERFACE SYNC VIEWS ---
-        const boardEl = document.getElementById('ascii-board');
+        // --- DOM HOOKS ---
+        const viewEl = document.getElementById('ascii-board-view');
         const statMatches = document.getElementById('stat-matches');
         const statTurn = document.getElementById('stat-turn');
         const statWinsA = document.getElementById('stat-wins-a');
@@ -644,7 +639,7 @@
         const qlLog = document.getElementById('ql-log');
 
         function renderView() {
-            boardEl.innerHTML = generateBoardASCII(gameState.pieces, gameState.laserPath);
+            viewEl.innerHTML = generateViewportDisplay(gameState.pieces, gameState.laserPath);
             statMatches.textContent = matchesCount;
             statTurn.innerHTML = gameState.turn === 'BLUE' ? '<span class="p-blue">BLUE (Model A)</span>' : '<span class="p-red">RED (Model B)</span>';
             statWinsA.textContent = modelAWins;
@@ -655,13 +650,7 @@
 
         function updateDashboardReward(rewardText) {
             statReward.textContent = rewardText;
-            if (rewardText.includes("+")) {
-                statReward.style.color = "var(--green)";
-            } else if (rewardText.includes("-")) {
-                statReward.style.color = "var(--red)";
-            } else {
-                statReward.style.color = "var(--bright)";
-            }
+            statReward.style.color = rewardText.includes("+") ? "var(--green)" : "var(--red)";
         }
 
         function logEvent(msg) {
@@ -675,12 +664,12 @@
         function logQUpdate(model, state, action, reward, value) {
             const entry = document.createElement('div');
             entry.className = "log-entry";
-            entry.innerHTML = `🏁 <b>Model ${model} Update:</b> [Action: ${action}] [Reward: ${reward}] -> New Q: ${value.toFixed(4)}<br><span style="color:#555;">State Snapshot Copy Matrix:</span><br><span style="color:#888;">${state}</span>`;
+            entry.innerHTML = `🏁 <b>Model ${model} Update:</b> [Action: ${action}] [Reward: ${reward}] -> New Q: ${value.toFixed(4)}<br><span style="color:var(--green);">Unified Crosscheck Key Structure:</span><br><span style="color:#00ffcc; font-size:10px;">${state.replace(/\n/g, '<br>')}</span>`;
             qlLog.appendChild(entry);
-            if (qlLog.childNodes.length > 50) qlLog.removeChild(qlLog.firstChild);
+            if (qlLog.childNodes.length > 30) qlLog.removeChild(qlLog.firstChild);
         }
 
-        // --- CONTROL EVENT LISTENERS ---
+        // --- MANAGEMENT HANDLERS ---
         const btnToggle = document.getElementById('btn-toggle');
         const btnSpeed = document.getElementById('btn-speed');
         const btnDownload = document.getElementById('btn-download');
@@ -702,62 +691,43 @@
         btnSpeed.addEventListener('click', () => {
             if (loopDelay === 50) {
                 loopDelay = 0;
-                btnSpeed.textContent = "SPEED: UNBOUNDED TURBO (0ms)";
+                btnSpeed.textContent = "SPEED: TURBO NO-DELAY (0ms)";
             } else if (loopDelay === 0) {
                 loopDelay = 500;
-                btnSpeed.textContent = "SPEED: SLOW (500ms)";
+                btnSpeed.textContent = "SPEED: SLOW MODE (500ms)";
             } else {
                 loopDelay = 50;
-                btnSpeed.textContent = "SPEED: FAST (50ms)";
+                btnSpeed.textContent = "SPEED: FAST MODE (50ms)";
             }
         });
 
         btnReset.addEventListener('click', () => {
-            if (confirm("Are you sure you want to completely erase training memory profiles for Model A and Model B?")) {
-                Q_TABLE_A = {};
-                Q_TABLE_B = {};
+            if (confirm("Reset learning histories?")) {
+                Q_TABLE_A = {}; Q_TABLE_B = {};
                 matchesCount = 0; modelAWins = 0; modelBWins = 0;
-                resetEnvironment();
-                renderView();
-                qlLog.innerHTML = "";
-                logEvent("Q-Tables completely wiped clean.");
+                resetEnvironment(); renderView(); qlLog.innerHTML = "";
+                logEvent("Tables initialized to zero.");
             }
         });
 
-        // --- FILE SERIALIZATION STORAGE EXPORTER ---
         btnDownload.addEventListener('click', () => {
-            const payload = {
-                metadata: {
-                    engine: "Laser Chess ThinkFun RL V1",
-                    timestamp: new Date().toISOString(),
-                    totalMatchesPlayed: matchesCount,
-                    modelAWins,
-                    modelBWins,
-                    hyperparameters: { alpha: ALPHA, gamma: GAMMA, epsilon: EPSILON }
-                },
-                models: {
-                    model_A_blue_qtable: Q_TABLE_A,
-                    model_B_red_qtable: Q_TABLE_B
-                }
-            };
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `laser_chess_ql_training_data_${matchesCount}_matches.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                metadata: { engine: "Crosscheck QL V2", matches: matchesCount },
+                tables: { model_A_blue: Q_TABLE_A, model_B_red: Q_TABLE_B }
+            }, null, 2));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `crosscheck_ql_data_${matchesCount}.json`);
+            dl.click();
+            dl.remove();
         });
 
-        // --- ENGINE RECURSION MANAGEMENT LOOP ---
         function runLoop() {
             if (!isRunning) return;
             stepSimulation();
             autoPlayInterval = setTimeout(runLoop, loopDelay);
         }
 
-        // Initialization Start
         resetEnvironment();
         renderView();
         runLoop();

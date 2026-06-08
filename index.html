@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laser Chess RL Terminal - Q-Learning Engine</title>
+    <style>
+        :root {
+            --bg0: #0a0a0a;
+            --bg1: #141414;
+            --border: #262626;
+            --text: #a3a3a3;
+            --bright: #ffffff;
+            --blue: #00d4ff;
+            --red: #ff3333;
+            --yellow: #ffff00;
+            --green: #00ff66;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg0);
+            color: var(--text);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        header {
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--bright);
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1000px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg1);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .panel-title {
+            color: var(--bright);
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: var(--bg0);
+            border: 1px solid var(--border);
+            padding: 8px;
+        }
+
+        .stat-val {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--bright);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #222;
+            color: var(--bright);
+            border: 1px solid #444;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+
+        button:hover {
+            background: #333;
+            border-color: #666;
+        }
+
+        button.active {
+            background: var(--green);
+            color: #000;
+            border-color: var(--green);
+        }
+
+        .board-wrapper {
+            display: flex;
+            justify-content: center;
+            background: var(--bg0);
+            padding: 15px;
+            border: 1px solid var(--border);
+        }
+
+        pre {
+            margin: 0;
+            line-height: 1.3;
+            font-size: 16px;
+        }
+
+        .p-blue { color: var(--blue); }
+        .p-red { color: var(--red); }
+        .p-laser { color: var(--yellow); }
+
+        .log-box {
+            background: var(--bg0);
+            border: 1px solid var(--border);
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+            border-bottom: 1px solid #111;
+            padding-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>LASER CHESS RL BENCHMARK - THINKFUN ENGINE</h1>
+        <p>Independent self-play Q-Learning iteration loop running completely local.</p>
+    </header>
+
+    <div class="controls">
+        <button id="btn-toggle" class="active">PAUSE AUTO-PLAY</button>
+        <button id="btn-speed">SPEED: FAST (50ms)</button>
+        <button id="btn-download">DOWNLOAD TRAINING DATA (JSON)</button>
+        <button id="btn-reset" style="border-color: var(--red);">RESET TABLES</button>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-title">🟢 LIVE ENVIRONMENT SIMULATOR</div>
+            <div class="dashboard">
+                <div class="stat-box">
+                    <div>Matches Played</div>
+                    <div id="stat-matches" class="stat-val">0</div>
+                </div>
+                <div class="stat-box">
+                    <div>Current Turn / Phase</div>
+                    <div id="stat-turn" class="stat-val"><span class="p-blue">BLUE</span></div>
+                </div>
+                <div class="stat-box">
+                    <div>Model A Wins (Blue)</div>
+                    <div id="stat-wins-a" class="stat-val p-blue">0</div>
+                </div>
+                <div class="stat-box">
+                    <div>Model B Wins (Red)</div>
+                    <div id="stat-wins-b" class="stat-val p-red">0</div>
+                </div>
+            </div>
+            <div class="board-wrapper">
+                <pre id="ascii-board">Initializing Board...</pre>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">💾 QL REINFORCEMENT LEARNING LOG</div>
+            <div class="dashboard">
+                <div class="stat-box">
+                    <div>Model A Q-Table Keys</div>
+                    <div id="stat-q-a" class="stat-val">0 states</div>
+                </div>
+                <div class="stat-box">
+                    <div>Model B Q-Table Keys</div>
+                    <div id="stat-q-b" class="stat-val">0 states</div>
+                </div>
+                <div class="stat-box">
+                    <div>Exploration Rate (&epsilon;)</div>
+                    <div id="stat-epsilon" class="stat-val">0.15</div>
+                </div>
+                <div class="stat-box">
+                    <div>Latest State Reward Allocation</div>
+                    <div id="stat-reward" class="stat-val">0</div>
+                </div>
+            </div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Active Q-Table State Key Log:</div>
+            <div class="log-box" id="ql-log"></div>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        'use strict';
+
+        // --- GAME ENVIRONMENT SPECIFICATIONS ---
+        const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
+        const ROTATION_SYMBOLS = { 
+            KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' }, 
+            LASER: { 0: '⫝', 1: '⟜', 2: 'Ͳ', 3: 'Ð' }, 
+            SWITCH: { 0: '⟋', 1: '⟍', 2: '⟋', 3: '⟍' }, 
+            DEFENDER: { 0: '⬓', 1: '◧', 2: '⬒', 3: '◨' }, 
+            DEFLECTOR: { 0: '◤', 1: '◥', 2: '◢', 3: '◣' } 
+        };
+
+        const BLUE_RESERVED = [{x: 9, y: 0}, {x: 9, y: 1}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 1, y: 0}, {x: 1, y: 7}];
+        const RED_RESERVED = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 8, y: 0}, {x: 8, y: 7}];
+
+        const INTERACTION_MAP = {
+            DEFLECTOR: {
+                0: { 0: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 2 }, 1: { action: 'destroy' }, 2: { action: 'destroy' } },
+                1: { 0: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 2 }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+                2: { 2: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 3: { action: 'destroy' } },
+                3: { 2: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 1: { action: 'destroy' } }
+            },
+            SWITCH: {
+                0: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
+                1: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } },
+                2: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
+                3: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } }
+            },
+            DEFENDER: {
+                0: { 0: { action: 'block' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+                1: { 1: { action: 'block' }, 0: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+                2: { 2: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 3: { action: 'destroy' } },
+                3: { 3: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' } }
+            },
+            KING: {
+                0: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+                1: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+                2: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+                3: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } }
+            },
+            LASER: {
+                0: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
+                1: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
+                2: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
+                3: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } }
+            }
+        };
+
+        // --- INITIAL STATE ---
+        const INITIAL_PIECES = [
+            {pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
+            {pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
+            {pieceType: "DEFENDER", color: "RED", rotation: 0, x: 4, y: 7},
+            {pieceType: "DEFENDER", color: "RED", rotation: 2, x: 6, y: 7},
+            {pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 5, y: 0},
+            {pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 3, y: 0},
+            {pieceType: "SWITCH", color: "BLUE", rotation: 0, x: 5, y: 3},
+            {pieceType: "SWITCH", color: "BLUE", rotation: 1, x: 4, y: 3},
+            {pieceType: "SWITCH", color: "RED", rotation: 0, x: 4, y: 4},
+            {pieceType: "SWITCH", color: "RED", rotation: 1, x: 5, y: 4},
+            {pieceType: "LASER", color: "RED", rotation: 2, x: 0, y: 7},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 0},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 3},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 2, y: 4},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 0, y: 3},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 0, y: 4},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 3, x: 7, y: 1},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 6, y: 2},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 4},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 7, y: 3},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 9, y: 3},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 9, y: 4},
+            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 3, y: 5},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 1, x: 2, y: 6},
+            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 7},
+            {pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
+        ];
+
+        let gameState = {
+            turn: "BLUE",
+            pieces: JSON.parse(JSON.stringify(INITIAL_PIECES)),
+            stepCount: 0,
+            laserPath: []
+        };
+
+        // --- RL MODEL MEMORY RESERVOIRS ---
+        // Identical implementation models with distinct separate objects
+        let Q_TABLE_A = {}; // Model A Memory Space (Blue)
+        let Q_TABLE_B = {}; // Model B Memory Space (Red)
+
+        // Hyperparameters
+        const ALPHA = 0.2;     // Learning Rate
+        const GAMMA = 0.9;     // Discount Factor
+        let EPSILON = 0.15;    // Exploration Ratio
+
+        // Statistics
+        let matchesCount = 0;
+        let modelAWins = 0;
+        let modelBWins = 0;
+
+        // Loop Configuration
+        let autoPlayInterval = null;
+        let loopDelay = 50; // ms
+        let isRunning = true;
+
+        // Last move markers for Q-learning updates
+        let modelALastState = null;
+        let modelALastAction = null;
+        let modelBLastState = null;
+        let modelBLastAction = null;
+
+        // --- BOARD UTILITIES ---
+        function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
+        function getPieceAt(pieces, x, y) { return pieces.find(p => p.x === x && p.y === y) || null; }
+        function isReservedSquare(x, y, color) { 
+            return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); 
+        }
+
+        // --- DIRECT BOARD COPY TO ASCII LOGGER ---
+        function generateBoardASCII(pieces, path = []) {
+            let layout = "";
+            for (let y = 7; y >= 0; y--) {
+                let rowStr = "";
+                for (let x = 0; x < 10; x++) {
+                    const piece = getPieceAt(pieces, x, y);
+                    if (piece) {
+                        const symbol = ROTATION_SYMBOLS[piece.pieceType][piece.rotation];
+                        rowStr += (piece.color === 'BLUE' ? 'B' : 'R') + symbol;
+                    } else {
+                        const pathSeg = path.find(p => p.x === x && p.y === y);
+                        if (pathSeg) {
+                            rowStr += ' *';
+                        } else {
+                            rowStr += ' .';
+                        }
+                    }
+                }
+                layout += rowStr + "\n";
+            }
+            return layout.trim();
+        }
+
+        // --- LASER TRAJECTORY RAYTRACER ---
+        function resolveLaserVector(pieces) {
+            const shooter = pieces.find(p => p.pieceType === 'LASER' && p.color === gameState.turn);
+            if (!shooter) return { path: [], hit: null };
+
+            let x = shooter.x;
+            let y = shooter.y;
+            let dir = shooter.rotation;
+            let path = [];
+            let seen = new Set();
+
+            // Step out of the shooter barrel
+            x += DIRS[dir].dx;
+            y += DIRS[dir].dy;
+
+            while (inBounds(x, y)) {
+                const stateKey = `${x},${y},${dir}`;
+                if (seen.has(stateKey)) return { path, hit: null }; // Loop protection
+                seen.add(stateKey);
+                path.push({ x, y, dir });
+
+                const piece = getPieceAt(pieces, x, y);
+                if (piece) {
+                    const typeMap = INTERACTION_MAP[piece.pieceType];
+                    if (!typeMap) return { path, hit: { piece, destroyed: false } };
+                    const outcome = typeMap[piece.rotation]?.[dir];
+
+                    if (!outcome) return { path, hit: { piece, destroyed: false } };
+                    if (outcome.action === 'reflect') {
+                        dir = outcome.nextDir;
+                        x += DIRS[dir].dx;
+                        y += DIRS[dir].dy;
+                        continue;
+                    }
+                    if (outcome.action === 'block') {
+                        return { path, hit: { piece, destroyed: false } };
+                    }
+                    if (outcome.action === 'destroy') {
+                        return { path, hit: { piece, destroyed: true } };
+                    }
+                }
+                x += DIRS[dir].dx;
+                y += DIRS[dir].dy;
+            }
+            return { path, hit: null };
+        }
+
+        // --- ACTION SPACE DISCOVERY ENGINE ---
+        function getLegalActions(color, pieces) {
+            let actions = [];
+            // Strategy Default fallback action: Stand ground and fire
+            actions.push({ type: 'FIRE' });
+
+            for (const p of pieces) {
+                if (p.color !== color) continue;
+
+                if (p.pieceType !== 'LASER') {
+                    // Rotations
+                    if (p.pieceType !== 'KING') {
+                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 });  // CW
+                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); // CCW
+                    }
+                    // Relocations
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const nx = p.x + dx;
+                            const ny = p.y + dy;
+                            if (!inBounds(nx, ny)) continue;
+                            if (isReservedSquare(nx, ny, color)) continue;
+
+                            const target = getPieceAt(pieces, nx, ny);
+                            if (!target) {
+                                actions.push({ type: 'MOVE', fx: p.x, fy: p.y, tx: nx, ty: ny });
+                            } else if (p.pieceType === 'SWITCH' && (target.pieceType === 'DEFLECTOR' || target.pieceType === 'DEFENDER')) {
+                                // Swap Qualification Validation
+                                if (!isReservedSquare(p.x, p.y, target.color)) {
+                                    actions.push({ type: 'MOVE', fx: p.x, fy: p.y, tx: nx, ty: ny });
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Lasers can pivot constraints
+                    if (color === 'BLUE') {
+                        if (p.rotation === 0) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 3 }); // To 3
+                        if (p.rotation === 3) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -3 }); // To 0
+                    } else {
+                        if (p.rotation === 1) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 }); // To 2
+                        if (p.rotation === 2) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); // To 1
+                    }
+                }
+            }
+            return actions;
+        }
+
+        function stringifyAction(act) {
+            if (act.type === 'FIRE') return "FIRE";
+            if (act.type === 'ROTATE') return `ROT:${act.x},${act.y}:${act.dir}`;
+            if (act.type === 'MOVE') return `MOV:${act.fx},${act.fy}->${act.tx},${act.ty}`;
+            return "UNKNOWN";
+        }
+
+        // --- RL REINFORCEMENT LEARNING LOGIC ---
+        function getQValue(model, state, actionStr) {
+            const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
+            if (!table[state]) return 0.0;
+            if (table[state][actionStr] === undefined) return 0.0;
+            return table[state][actionStr];
+        }
+
+        function setQValue(model, state, actionStr, val) {
+            const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
+            if (!table[state]) table[state] = {};
+            table[state][actionStr] = val;
+        }
+
+        function getMaxQ(model, state) {
+            const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
+            if (!table[state]) return 0.0;
+            let maxVal = -Infinity;
+            let hasKeys = false;
+            for (const act in table[state]) {
+                hasKeys = true;
+                if (table[state][act] > maxVal) maxVal = table[state][act];
+            }
+            return hasKeys ? maxVal : 0.0;
+        }
+
+        // --- CORE ENVIRONMENT ADVANCEMENT TURN STEP ---
+        function stepSimulation() {
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            const opposingModel = (currentModel === 'A') ? 'B' : 'A';
+
+            // 1. Snapshot board state key string
+            const stateString = generateBoardASCII(gameState.pieces, []);
+            const legalActs = getLegalActions(gameState.turn, gameState.pieces);
+            
+            // 2. Epsilon-Greedy choice policy selection
+            let selectedAction = null;
+            if (Math.random() < EPSILON) {
+                selectedAction = legalActs[Math.floor(Math.random() * legalActs.length)];
+            } else {
+                let bestQ = -Infinity;
+                let candidates = [];
+                for (const act of legalActs) {
+                    const actStr = stringifyAction(act);
+                    const q = getQValue(currentModel, stateString, actStr);
+                    if (q > bestQ) {
+                        bestQ = q;
+                        candidates = [act];
+                    } else if (q === bestQ) {
+                        candidates.push(act);
+                    }
+                }
+                selectedAction = candidates[Math.floor(Math.random() * candidates.length)];
+            }
+
+            const chosenActionStr = stringifyAction(selectedAction);
+
+            // Save trace markers for temporal updates
+            if (currentModel === 'A') {
+                modelALastState = stateString;
+                modelALastAction = chosenActionStr;
+            } else {
+                modelBLastState = stateString;
+                modelBLastAction = chosenActionStr;
+            }
+
+            // 3. Execution/Mutation changes applied to environment
+            if (selectedAction.type === 'MOVE') {
+                const targetPiece = getPieceAt(gameState.pieces, selectedAction.tx, selectedAction.ty);
+                const movingPiece = getPieceAt(gameState.pieces, selectedAction.fx, selectedAction.fy);
+                if (targetPiece && movingPiece && movingPiece.pieceType === 'SWITCH') {
+                    // Position Switch swap execution
+                    targetPiece.x = selectedAction.fx;
+                    targetPiece.y = selectedAction.fy;
+                }
+                if (movingPiece) {
+                    movingPiece.x = selectedAction.tx;
+                    movingPiece.y = selectedAction.ty;
+                }
+            } else if (selectedAction.type === 'ROTATE') {
+                const p = getPieceAt(gameState.pieces, selectedAction.x, selectedAction.y);
+                if (p) p.rotation = (p.rotation + selectedAction.dir + 4) % 4;
+            }
+
+            // 4. Laser Raytrace and destruction calculation
+            const calculation = resolveLaserVector(gameState.pieces);
+            gameState.laserPath = calculation.path;
+
+            let terminalStatus = null; // 'WIN_A', 'WIN_B', 'DRAW'
+
+            if (calculation.hit && calculation.hit.destroyed) {
+                const victim = calculation.hit.piece;
+                gameState.pieces = gameState.pieces.filter(p => !(p.x === victim.x && p.y === victim.y));
+                if (victim.pieceType === 'KING') {
+                    terminalStatus = (victim.color === 'RED') ? 'WIN_A' : 'WIN_B';
+                }
+            }
+
+            gameState.stepCount++;
+            if (!terminalStatus && gameState.stepCount >= 200) {
+                terminalStatus = 'DRAW';
+            }
+
+            // 5. Backpropagation Rewards Assignment Mapping
+            if (terminalStatus) {
+                matchesCount++;
+                if (terminalStatus === 'WIN_A') {
+                    modelAWins++;
+                    // Winner A gets +1000
+                    updateQ(currentModel, stateString, chosenActionStr, 1000, true, null);
+                    // Loser B gets -1000
+                    if (modelBLastState && modelBLastAction) {
+                        updateQ('B', modelBLastState, modelBLastAction, -1000, true, null);
+                    }
+                    logEvent(`MATCH #${matchesCount}: Model A (Blue) WINS. King Destroyed.`);
+                } else if (terminalStatus === 'WIN_B') {
+                    modelBWins++;
+                    // Winner B gets +1000
+                    updateQ(currentModel, stateString, chosenActionStr, 1000, true, null);
+                    // Loser A gets -1000
+                    if (modelALastState && modelALastAction) {
+                        updateQ('A', modelALastState, modelALastAction, -1000, true, null);
+                    }
+                    logEvent(`MATCH #${matchesCount}: Model B (Red) WINS. King Destroyed.`);
+                } else {
+                    // Draw step ceiling cutoff limit reached
+                    updateQ('A', modelALastState, modelALastAction, 0, true, null);
+                    updateQ('B', modelBLastState, modelBLastAction, 0, true, null);
+                    logEvent(`MATCH #${matchesCount}: DRAW (Step limits exhausted)`);
+                }
+                updateDashboardReward(terminalStatus === 'WIN_A' ? "+1000" : "-1000");
+                resetEnvironment();
+            } else {
+                // Non-terminal move step. Compute passing update
+                const nextStateString = generateBoardASCII(gameState.pieces, []);
+                updateQ(currentModel, stateString, chosenActionStr, 0, false, nextStateString);
+                // Rotate Turn active components
+                gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
+            }
+
+            renderView();
+        }
+
+        // Standard Q-Value optimization algorithm function
+        function updateQ(model, state, action, reward, isTerminal, nextState) {
+            const oldQ = getQValue(model, state, action);
+            let nextMax = 0.0;
+            if (!isTerminal && nextState) {
+                nextMax = getMaxQ(model, nextState);
+            }
+            const updatedVal = oldQ + ALPHA * (reward + (GAMMA * nextMax) - oldQ);
+            setQValue(model, state, action, updatedVal);
+            
+            // Output sample state frame logs
+            if (Math.random() < 0.05 || isTerminal) {
+                logQUpdate(model, state, action, reward, updatedVal);
+            }
+        }
+
+        function resetEnvironment() {
+            gameState.pieces = JSON.parse(JSON.stringify(INITIAL_PIECES));
+            gameState.turn = "BLUE";
+            gameState.stepCount = 0;
+            gameState.laserPath = [];
+            modelALastState = null; modelALastAction = null;
+            modelBLastState = null; modelBLastAction = null;
+        }
+
+        // --- INTERFACE SYNC VIEWS ---
+        const boardEl = document.getElementById('ascii-board');
+        const statMatches = document.getElementById('stat-matches');
+        const statTurn = document.getElementById('stat-turn');
+        const statWinsA = document.getElementById('stat-wins-a');
+        const statWinsB = document.getElementById('stat-wins-b');
+        const statQA = document.getElementById('stat-q-a');
+        const statQB = document.getElementById('stat-q-b');
+        const statReward = document.getElementById('stat-reward');
+        const qlLog = document.getElementById('ql-log');
+
+        function renderView() {
+            boardEl.innerHTML = generateBoardASCII(gameState.pieces, gameState.laserPath);
+            statMatches.textContent = matchesCount;
+            statTurn.innerHTML = gameState.turn === 'BLUE' ? '<span class="p-blue">BLUE (Model A)</span>' : '<span class="p-red">RED (Model B)</span>';
+            statWinsA.textContent = modelAWins;
+            statWinsB.textContent = modelBWins;
+            statQA.textContent = `${Object.keys(Q_TABLE_A).length} states`;
+            statQB.textContent = `${Object.keys(Q_TABLE_B).length} states`;
+        }
+
+        function updateDashboardReward(rewardText) {
+            statReward.textContent = rewardText;
+            if (rewardText.includes("+")) {
+                statReward.style.color = "var(--green)";
+            } else if (rewardText.includes("-")) {
+                statReward.style.color = "var(--red)";
+            } else {
+                statReward.style.color = "var(--bright)";
+            }
+        }
+
+        function logEvent(msg) {
+            const entry = document.createElement('div');
+            entry.className = "log-entry";
+            entry.style.color = "var(--yellow)";
+            entry.textContent = `⚡ [System]: ${msg}`;
+            qlLog.appendChild(entry);
+        }
+
+        function logQUpdate(model, state, action, reward, value) {
+            const entry = document.createElement('div');
+            entry.className = "log-entry";
+            entry.innerHTML = `🏁 <b>Model ${model} Update:</b> [Action: ${action}] [Reward: ${reward}] -> New Q: ${value.toFixed(4)}<br><span style="color:#555;">State Snapshot Copy Matrix:</span><br><span style="color:#888;">${state}</span>`;
+            qlLog.appendChild(entry);
+            if (qlLog.childNodes.length > 50) qlLog.removeChild(qlLog.firstChild);
+        }
+
+        // --- CONTROL EVENT LISTENERS ---
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnSpeed = document.getElementById('btn-speed');
+        const btnDownload = document.getElementById('btn-download');
+        const btnReset = document.getElementById('btn-reset');
+
+        btnToggle.addEventListener('click', () => {
+            isRunning = !isRunning;
+            if (isRunning) {
+                btnToggle.textContent = "PAUSE AUTO-PLAY";
+                btnToggle.classList.add('active');
+                runLoop();
+            } else {
+                btnToggle.textContent = "RESUME AUTO-PLAY";
+                btnToggle.classList.remove('active');
+                clearTimeout(autoPlayInterval);
+            }
+        });
+
+        btnSpeed.addEventListener('click', () => {
+            if (loopDelay === 50) {
+                loopDelay = 0;
+                btnSpeed.textContent = "SPEED: UNBOUNDED TURBO (0ms)";
+            } else if (loopDelay === 0) {
+                loopDelay = 500;
+                btnSpeed.textContent = "SPEED: SLOW (500ms)";
+            } else {
+                loopDelay = 50;
+                btnSpeed.textContent = "SPEED: FAST (50ms)";
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            if (confirm("Are you sure you want to completely erase training memory profiles for Model A and Model B?")) {
+                Q_TABLE_A = {};
+                Q_TABLE_B = {};
+                matchesCount = 0; modelAWins = 0; modelBWins = 0;
+                resetEnvironment();
+                renderView();
+                qlLog.innerHTML = "";
+                logEvent("Q-Tables completely wiped clean.");
+            }
+        });
+
+        // --- FILE SERIALIZATION STORAGE EXPORTER ---
+        btnDownload.addEventListener('click', () => {
+            const payload = {
+                metadata: {
+                    engine: "Laser Chess ThinkFun RL V1",
+                    timestamp: new Date().toISOString(),
+                    totalMatchesPlayed: matchesCount,
+                    modelAWins,
+                    modelBWins,
+                    hyperparameters: { alpha: ALPHA, gamma: GAMMA, epsilon: EPSILON }
+                },
+                models: {
+                    model_A_blue_qtable: Q_TABLE_A,
+                    model_B_red_qtable: Q_TABLE_B
+                }
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `laser_chess_ql_training_data_${matchesCount}_matches.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        });
+
+        // --- ENGINE RECURSION MANAGEMENT LOOP ---
+        function runLoop() {
+            if (!isRunning) return;
+            stepSimulation();
+            autoPlayInterval = setTimeout(runLoop, loopDelay);
+        }
+
+        // Initialization Start
+        resetEnvironment();
+        renderView();
+        runLoop();
+    })();
+    </script>
+</body>
+</html>

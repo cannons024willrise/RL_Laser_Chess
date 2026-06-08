@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laser Chess RL Terminal - Macro History Engine</title>
+    <title>Laser Chess RL Terminal - Absolute High-Performance Engine</title>
     <style>
         :root {
             --bg0: #0a0a0a;
@@ -168,8 +168,8 @@
 <body>
 
     <header>
-        <h1>LASER CHESS RL - EPISODE HISTORY ENGINE</h1>
-        <p>Monte Carlo update mechanics mapping rewards retroactively onto the entire game path following King Death.</p>
+        <h1>LASER CHESS RL - HIGH PERFORMANCE IMMUNE TERMINAL</h1>
+        <p>Monte Carlo macro-history matching featuring active OS-level Screen Wake Lock processing.</p>
     </header>
 
     <div class="controls">
@@ -198,6 +198,10 @@
                 <div class="stat-box">
                     <div>Model B Wins (Red / 0)</div>
                     <div id="stat-wins-b" class="stat-val p-red">0</div>
+                </div>
+                <div class="stat-box" style="grid-column: span 2; border-color: #333;">
+                    <div>Hardware Performance Mode (Wake Lock)</div>
+                    <div id="stat-wakelock" class="stat-val" style="color: var(--yellow);">INITIALIZING ENGINE...</div>
                 </div>
             </div>
             
@@ -316,12 +320,11 @@
             laserPath: []
         };
 
-        // --- Q-TABLE DATA SYSTEMS ---
         let Q_TABLE_A = {}; 
         let Q_TABLE_B = {}; 
 
-        const ALPHA = 0.15; // Learning Rate
-        const EPSILON = 0.15; // Exploration Rate
+        const ALPHA = 0.15; 
+        const EPSILON = 0.15; 
 
         let matchesCount = 0;
         let modelAWins = 0;
@@ -330,8 +333,8 @@
         let autoPlayInterval = null;
         let loopDelay = 50; 
         let isRunning = true;
+        let wakeLockToken = null;
 
-        // THE MEGA-STATE ARRAY LOG: Stores every move made throughout the active game match
         let gameHistoryTrace = [];
 
         function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
@@ -340,7 +343,33 @@
             return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); 
         }
 
-        // --- DUAL-MATRIX STATE STRING CONCATENATION ENGINE ---
+        // --- HARDWARE ANTI-SLEEP REGULATION ---
+        async function triggerSystemWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLockToken = await navigator.wakeLock.request('screen');
+                    const label = document.getElementById('stat-wakelock');
+                    label.textContent = "ACTIVE (CPU Unlocked & Never Sleep)";
+                    label.style.color = "var(--green)";
+                } catch (err) {
+                    const label = document.getElementById('stat-wakelock');
+                    label.textContent = "OS RESTRICTION: " + err.message;
+                    label.style.color = "var(--red)";
+                }
+            } else {
+                const label = document.getElementById('stat-wakelock');
+                label.textContent = "UNSUPPORTED BY BROWSER (Upgrade browser to guarantee unthrottled clocks)";
+                label.style.color = "var(--yellow)";
+            }
+        }
+
+        // Re-acquire lock automatically if user minimizes window and re-focuses it
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLockToken !== null && document.visibilityState === 'visible') {
+                await triggerSystemWakeLock();
+            }
+        });
+
         function generateRLStateKey(pieces, turn) {
             let geometryASCII = "";
             let ownershipASCII = "";
@@ -366,7 +395,6 @@
             return `${geometryASCII.trim()}\n[MAP]\n${ownershipASCII.trim()}\n[T:${extraDigit}]`;
         }
 
-        // --- TRAJECTORY RAYTRACER ---
         function resolveLaserVector(pieces) {
             const shooter = pieces.find(p => p.pieceType === 'LASER' && p.color === gameState.turn);
             if (!shooter) return { path: [], hit: null };
@@ -405,7 +433,6 @@
             return { path, hit: null };
         }
 
-        // --- DISCOVERY VALIDATOR ---
         function getLegalActions(color, pieces) {
             let actions = [{ type: 'FIRE' }];
 
@@ -467,7 +494,6 @@
             table[state][actionStr] = val;
         }
 
-        // --- MONTE CARLO RETROACTIVE BACKPROPAGATOR ---
         function backpropagateEntireGameHistory(winningModel) {
             let sampleLogged = false;
 
@@ -477,7 +503,6 @@
                 if (winningModel === 'DRAW') {
                     targetReward = 0;
                 } else {
-                    // Assign explicit absolute rewards depending on match alliance results
                     if (record.model === winningModel) {
                         targetReward = 1000;
                     } else {
@@ -486,11 +511,9 @@
                 }
 
                 const oldQ = getQValue(record.model, record.state, record.action);
-                // Direct updates applied straight to the recorded keys without step decay lookaheads
                 const newQ = oldQ + ALPHA * (targetReward - oldQ);
                 setQValue(record.model, record.state, record.action, newQ);
 
-                // Print the last transaction trace step directly inside logs
                 if (!sampleLogged) {
                     logQHistoryUpdate(record.model, record.state, record.action, targetReward, newQ, gameHistoryTrace.length);
                     sampleLogged = true;
@@ -498,15 +521,12 @@
             }
         }
 
-        // --- CORE RUNTIME ACTION BLOCK ---
         function stepSimulation() {
             const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
 
-            // 1. Map snapshot matrix key
             const currentStateKey = generateRLStateKey(gameState.pieces, gameState.turn);
             const legalActs = getLegalActions(gameState.turn, gameState.pieces);
             
-            // 2. Choose path via exploration selection
             let selectedAction = null;
             if (Math.random() < EPSILON) {
                 selectedAction = legalActs[Math.floor(Math.random() * legalActs.length)];
@@ -528,14 +548,12 @@
 
             const chosenActionStr = stringifyAction(selectedAction);
 
-            // 3. PUSH STEP TO THE MEGA-STATE GAME HISTORY TRACE
             gameHistoryTrace.push({
                 model: currentModel,
                 state: currentStateKey,
                 action: chosenActionStr
             });
 
-            // 4. Transform Environment Matrix
             if (selectedAction.type === 'MOVE') {
                 const targetPiece = getPieceAt(gameState.pieces, selectedAction.tx, selectedAction.ty);
                 const movingPiece = getPieceAt(gameState.pieces, selectedAction.fx, selectedAction.fy);
@@ -552,7 +570,6 @@
                 if (p) p.rotation = (p.rotation + selectedAction.dir + 4) % 4;
             }
 
-            // 5. Fire Firing Sequences
             const calculation = resolveLaserVector(gameState.pieces);
             gameState.laserPath = calculation.path;
 
@@ -571,27 +588,25 @@
                 terminalStatus = 'DRAW';
             }
 
-            // 6. TRIGGER POINT: EVALUATE ABSOLUTE REWARD HISTORIES ONCE KING DEATH OCCURS
             if (terminalStatus) {
                 matchesCount++;
                 if (terminalStatus === 'WIN_A') {
                     modelAWins++;
                     backpropagateEntireGameHistory('A');
-                    logMatchTermination(`MATCH #${matchesCount}: Model A (Blue) WINS. King Destroyed. Updates dispatched across entire history trace.`);
+                    logMatchTermination(`MATCH #${matchesCount}: Model A (Blue) WINS. King Destroyed.`);
                     updateDashboardReward("+1000");
                 } else if (terminalStatus === 'WIN_B') {
                     modelBWins++;
                     backpropagateEntireGameHistory('B');
-                    logMatchTermination(`MATCH #${matchesCount}: Model B (Red) WINS. King Destroyed. Updates dispatched across entire history trace.`);
+                    logMatchTermination(`MATCH #${matchesCount}: Model B (Red) WINS. King Destroyed.`);
                     updateDashboardReward("-1000");
                 } else {
                     backpropagateEntireGameHistory('DRAW');
-                    logMatchTermination(`MATCH #${matchesCount}: DRAW. Limits hit.`);
+                    logMatchTermination(`MATCH #${matchesCount}: DRAW.`);
                     updateDashboardReward("0");
                 }
                 resetEnvironment();
             } else {
-                // Switch execution sequence control lines
                 gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
             }
 
@@ -603,10 +618,9 @@
             gameState.turn = "BLUE";
             gameState.stepCount = 0;
             gameState.laserPath = [];
-            gameHistoryTrace = []; // Wipe history tracing stack clean for next match
+            gameHistoryTrace = []; 
         }
 
-        // --- GRAPHICS & PANEL HOOK RENDERERS ---
         const gridEl = document.getElementById('viewport-grid');
         const statMatches = document.getElementById('stat-matches');
         const statTurn = document.getElementById('stat-turn');
@@ -671,7 +685,6 @@
             if (qlLog.childNodes.length > 20) qlLog.removeChild(qlLog.firstChild);
         }
 
-        // --- BUTTON HANDLER MANAGEMENT INTERFACES ---
         const btnToggle = document.getElementById('btn-toggle');
         const btnSpeed = document.getElementById('btn-speed');
         const btnDownload = document.getElementById('btn-download');
@@ -714,7 +727,7 @@
 
         btnDownload.addEventListener('click', () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
-                metadata: { engine: "Monte Carlo Macro History Match QL V4", matches: matchesCount, winsA: modelAWins, winsB: modelBWins },
+                metadata: { engine: "Monte Carlo Anti-Sleep Match QL V5", matches: matchesCount, winsA: modelAWins, winsB: modelBWins },
                 tables: { model_A_blue_macro: Q_TABLE_A, model_B_red_macro: Q_TABLE_B }
             }, null, 2));
             const dl = document.createElement('a');
@@ -732,6 +745,7 @@
 
         resetEnvironment();
         renderView();
+        triggerSystemWakeLock(); // Request system-level wake lock immediately upon load
         runLoop();
     })();
     </script>

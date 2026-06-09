@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laser Chess High-Performance RL Engine - Isolated Traces & Policies</title>
+    <title>Laser Chess RL Engine</title>
     <style>
         :root {
             --bg0: #0a0a0a;
@@ -15,6 +15,7 @@
             --red: #ff3333;
             --yellow: #ffff00;
             --green: #00ff66;
+            --purple: #bd93f9;
             --cell-size: 42px;
             --blue-tint: rgba(0, 212, 255, 0.12);
             --red-tint: rgba(255, 51, 51, 0.12);
@@ -90,15 +91,17 @@
 
         .p-blue { color: var(--blue); }
         .p-red { color: var(--red); }
+        .p-purple { color: var(--purple); }
 
         .controls {
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
-        button {
+        button, select {
             background: #1c1c1c;
             color: var(--bright);
             border: 1px solid #333;
@@ -107,6 +110,11 @@
             font-family: inherit;
             font-weight: bold;
             border-radius: 3px;
+        }
+
+        select {
+            cursor: default;
+            outline: none;
         }
 
         button:hover {
@@ -122,6 +130,8 @@
 
         button.download-a { border-left: 4px solid var(--blue); }
         button.download-b { border-left: 4px solid var(--red); }
+        button.action-stakes { border-left: 4px solid var(--purple); background: #241931; }
+        button.action-stakes:hover { background: #322344; }
 
         .board-container {
             display: flex;
@@ -153,8 +163,9 @@
         .cell.reserved-blue { background-color: var(--blue-tint); }
         .cell.reserved-red { background-color: var(--red-tint); }
         .cell.laser-path { background: rgba(255, 255, 0, 0.12); color: var(--yellow); }
+        .cell.cursor { outline: 2px solid var(--bright); z-index: 2; }
+        .cell.selected-piece { background: #2a2a2a; box-shadow: inset 0 0 8px rgba(255,255,255,0.2); }
 
-        /* BIFURCATED LOGS CONTAINER GRID */
         .logs-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -196,16 +207,26 @@
 <body>
 
     <header>
-        <h1>LASER CHESS RL - ASYMMETRIC TRAINING CORE WITH BIFURCATED EXPORTERS</h1>
-        <p>Isolated updates, decoupled storage JSON compilation streams, and full game logic verification tracking.</p>
+        <h1>LASER CHESS RL - ASYMMETRIC LOGGING WITH HIGH-STAKES INTERACTIVE OVERRIDE</h1>
+        <p>Bifurcated compilation logs, separate JSON exporters, and human-in-the-loop demonstration injection vectors.</p>
     </header>
 
     <div class="controls">
         <button id="btn-toggle" class="active">PAUSE TRAINING</button>
         <button id="btn-speed">SPEED: TURBO OVERDRIVE (0ms)</button>
-        <button id="btn-download-a" class="download-a">DOWNLOAD MODEL A POLICY (JSON)</button>
-        <button id="btn-download-b" class="download-b">DOWNLOAD MODEL B POLICY (JSON)</button>
-        <button id="btn-reset" style="border-color: var(--red);">RESET ARRAYS & LOGS</button>
+        <button id="btn-download-a" class="download-a">DOWNLOAD MODEL A JSON</button>
+        <button id="btn-download-b" class="download-b">DOWNLOAD MODEL B JSON</button>
+        
+        <div style="border-left: 1px solid var(--border); padding-left: 10px; display: flex; gap: 6px; align-items: center;">
+            <label for="select-model" style="font-weight: bold; font-size: 11px;">TARGET AGENT:</label>
+            <select id="select-model">
+                <option value="A">MODEL A (BLUE)</option>
+                <option value="B">MODEL B (RED)</option>
+            </select>
+            <button id="btn-stakes" class="action-stakes">INJECT ±10000 MANUAL MATCH</button>
+        </div>
+
+        <button id="btn-reset" style="border-color: var(--red); margin-left: auto;">RESET DATA arrays</button>
     </div>
 
     <div class="container">
@@ -229,13 +250,16 @@
                     <div id="stat-wins-b" class="stat-val p-red">0</div>
                 </div>
                 <div class="stat-box" style="grid-column: span 2; border-color: #333;">
-                    <div>Hardware Keep-Alive Shield</div>
-                    <div id="stat-wakelock" class="stat-val" style="color: var(--yellow);">INITIALIZING ENGINE PROTECTION...</div>
+                    <div>Match Execution Mode</div>
+                    <div id="stat-execution-mode" class="stat-val" style="color: var(--green);">AUTOMATED AGENT TRAINING LMode</div>
                 </div>
             </div>
             
             <div class="board-container">
                 <div class="board-grid" id="viewport-grid"></div>
+            </div>
+            <div style="font-size: 11px; margin-top: 10px; color: #666; line-height: 1.4;">
+                * When Manual Match is active: Use <b>Arrow Keys</b> to steer cursor, <b>Enter</b> to select/move pieces, <b>L / R</b> to rotate selected piece, and <b>F</b> to bypass move and fire laser.
             </div>
         </div>
 
@@ -277,7 +301,7 @@
     (() => {
         'use strict';
 
-        // --- ATOMIC CONFIGURATION CONSTANTS FROM INDEX.HTML ---
+        // --- ATOMIC CONFIGURATION CONSTANTS ---
         const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
         
         const ROTATION_TABLE = { 
@@ -353,7 +377,7 @@
             {id: "pmpfr69imw", pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
         ];
 
-        // --- SEPARATE REPOSITORIES (MODEL A / MODEL B) ---
+        // --- DECOUPLED STORAGE OBJECTS ---
         let Q_TABLE_A = {}; 
         let Q_TABLE_B = {}; 
 
@@ -375,11 +399,16 @@
         let autoPlayInterval = null;
         let loopDelay = 0; 
         let isRunning = true;
-        let wakeLockToken = null;
 
         let gameHistoryTrace = [];
 
-        // --- MATCH MECHANICS VALIDATION CORE ---
+        // --- INTERACTIVE Demonstration OVERLAY CHANNELS ---
+        let selectedManualModel = null; // 'A' or 'B' when override triggers
+        let matchRewardMagnitude = 1000; // Scales up to 10000 dynamically
+        let cursorX = 4;
+        let cursorY = 0;
+        let selectedOrigin = null;
+
         function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
         function normalizeRotation(rot) { return ((Number(rot) || 0) % 4 + 4) % 4; }
         function isReservedSquare(x, y, color) { return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); }
@@ -454,25 +483,6 @@
             return actions;
         }
 
-        // --- HARDWARE POWER ARCHITECTURE MANAGEMENT ---
-        async function triggerSystemWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    wakeLockToken = await navigator.wakeLock.request('screen');
-                    const label = document.getElementById('stat-wakelock');
-                    label.textContent = "ACTIVE (Paranoia Layer Running)";
-                    label.style.color = "var(--green)";
-                } catch (err) {
-                    const label = document.getElementById('stat-wakelock');
-                    label.textContent = "RESTRICTED: " + err.message;
-                }
-            } else {
-                const label = document.getElementById('stat-wakelock');
-                label.textContent = "API LAYER ABSENT (Keep view active)";
-            }
-        }
-
-        // --- RL STATE TRANSLATION SYSTEM ---
         function generateRLStateKey(pieces, turn) {
             let layoutStr = "";
             for (let y = 7; y >= 0; y--) {
@@ -514,13 +524,12 @@
             const logA = document.getElementById('ql-log-a');
             const logB = document.getElementById('ql-log-b');
             
-            // Inject structural validation milestones inside both viewports
             const markerA = document.createElement('div');
             markerA.style.borderLeft = "2px solid var(--blue)";
             markerA.style.background = "#07111a";
             markerA.style.padding = "4px";
             markerA.style.margin = "6px 0";
-            markerA.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '+1000' : '-1000')}`;
+            markerA.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '+' + terminalReward : '-' + terminalReward)}`;
             logA.appendChild(markerA);
 
             const markerB = document.createElement('div');
@@ -528,10 +537,9 @@
             markerB.style.background = "#1a0707";
             markerB.style.padding = "4px";
             markerB.style.margin = "6px 0";
-            markerB.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '-1000' : '+1000')}`;
+            markerB.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '-' + terminalReward : '+' + terminalReward)}`;
             logB.appendChild(markerB);
 
-            // Execute full recursive backwards backprop loop (T-1 -> 0)
             for (let t = totalSteps - 1; t >= 0; t--) {
                 const record = gameHistoryTrace[t];
                 
@@ -540,7 +548,7 @@
                     outcomeSign = (record.model === winningModel) ? 1 : -1;
                 }
                 
-                const stepTerminalReward = Math.abs(terminalReward) * outcomeSign;
+                const stepTerminalReward = terminalReward * outcomeSign;
                 const distanceToTerminal = (totalSteps - 1) - t;
                 const discountedReturn = Math.pow(GAMMA, distanceToTerminal) * stepTerminalReward;
 
@@ -548,7 +556,6 @@
                 const newQ = oldQ + ALPHA * (discountedReturn - oldQ);
                 setQValue(record.model, record.state, record.action, newQ);
 
-                // Construct isolated text node elements matching targeted source models
                 const traceRow = document.createElement('div');
                 traceRow.style.fontSize = "10px";
                 traceRow.style.paddingLeft = "5px";
@@ -565,9 +572,15 @@
             logB.scrollTop = logB.scrollHeight;
         }
 
-        // --- SIMULATION STEP TICK ---
+        // --- SIMULATION TICK / OVERRIDE COMPILER ---
         function stepSimulation() {
             const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            
+            // If the current team turn is marked for manual interface control, pause simulation loop execution
+            if (selectedManualModel === currentModel) {
+                return; 
+            }
+
             const currentStateKey = generateRLStateKey(gameState.pieces, gameState.turn);
             const legalActs = getLegalActions(gameState.turn, gameState.pieces);
             
@@ -595,28 +608,32 @@
                 selectedAction = candidates[Math.floor(Math.random() * candidates.length)];
             }
 
-            const chosenActionStr = stringifyAction(selectedAction);
+            executeTargetAction(selectedAction, currentModel, currentStateKey);
+        }
+
+        function executeTargetAction(actionObj, modelTag, stateKey) {
+            const actionStr = stringifyAction(actionObj);
 
             gameHistoryTrace.push({
-                model: currentModel,
-                state: currentStateKey,
-                action: chosenActionStr
+                model: modelTag,
+                state: stateKey,
+                action: actionStr
             });
 
-            if (selectedAction.type === 'MOVE') {
-                const targetPiece = getPieceAt(gameState.pieces, selectedAction.tx, selectedAction.ty);
-                const movingPiece = getPieceAt(gameState.pieces, selectedAction.fx, selectedAction.fy);
+            if (actionObj.type === 'MOVE') {
+                const targetPiece = getPieceAt(gameState.pieces, actionObj.tx, actionObj.ty);
+                const movingPiece = getPieceAt(gameState.pieces, actionObj.fx, actionObj.fy);
                 if (targetPiece && movingPiece && movingPiece.pieceType === 'SWITCH') {
-                    targetPiece.x = selectedAction.fx;
-                    targetPiece.y = selectedAction.fy;
+                    targetPiece.x = actionObj.fx;
+                    targetPiece.y = actionObj.fy;
                 }
                 if (movingPiece) {
-                    movingPiece.x = selectedAction.tx;
-                    movingPiece.y = selectedAction.ty;
+                    movingPiece.x = actionObj.tx;
+                    movingPiece.y = actionObj.ty;
                 }
-            } else if (selectedAction.type === 'ROTATE') {
-                const p = getPieceAt(gameState.pieces, selectedAction.x, selectedAction.y);
-                if (p) p.rotation = selectedAction.rot;
+            } else if (actionObj.type === 'ROTATE') {
+                const p = getPieceAt(gameState.pieces, actionObj.x, actionObj.y);
+                if (p) p.rotation = actionObj.rot;
             }
 
             const activeShooterColor = gameState.turn;
@@ -646,8 +663,8 @@
             }
 
             if (terminalStatus) {
-                if (terminalStatus === 'WIN_A') concludeMatch('A', 1000);
-                else if (terminalStatus === 'WIN_B') concludeMatch('B', 1000);
+                if (terminalStatus === 'WIN_A') concludeMatch('A', matchRewardMagnitude);
+                else if (terminalStatus === 'WIN_B') concludeMatch('B', matchRewardMagnitude);
                 else concludeMatch('DRAW', 0);
             } else {
                 gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
@@ -660,11 +677,11 @@
             matchesCount++;
             if (winner === 'A') {
                 modelAWins++;
-                document.getElementById('stat-reward').textContent = "+1000";
+                document.getElementById('stat-reward').textContent = "+" + rewardValue;
                 document.getElementById('stat-reward').style.color = "var(--blue)";
             } else if (winner === 'B') {
                 modelBWins++;
-                document.getElementById('stat-reward').textContent = "-1000";
+                document.getElementById('stat-reward').textContent = "-" + rewardValue;
                 document.getElementById('stat-reward').style.color = "var(--red)";
             } else {
                 document.getElementById('stat-reward').textContent = "0";
@@ -672,6 +689,12 @@
             }
 
             backpropagateEntireGameHistory(winner, rewardValue);
+            
+            // Clear manual override state mechanics upon terminal frame completion
+            selectedManualModel = null;
+            matchRewardMagnitude = 1000;
+            selectedOrigin = null;
+            
             resetEnvironment();
         }
 
@@ -681,6 +704,65 @@
             gameState.stepCount = 0;
             gameState.laserPath = [];
             gameHistoryTrace = []; 
+        }
+
+        // --- INTERACTIVE GRID ACTION TRANSLATORS ---
+        function handleManualGridCommit() {
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            if (selectedManualModel !== currentModel) return;
+
+            const pieces = gameState.pieces;
+            const stateKey = generateRLStateKey(pieces, gameState.turn);
+            const legalActs = getLegalActions(gameState.turn, pieces);
+
+            if (!selectedOrigin) {
+                const p = getPieceAt(pieces, cursorX, cursorY);
+                if (p && p.color === gameState.turn) {
+                    selectedOrigin = { x: cursorX, y: cursorY };
+                }
+            } else {
+                if (selectedOrigin.x === cursorX && selectedOrigin.y === cursorY) {
+                    selectedOrigin = null;
+                } else {
+                    // Attempt structural match on MOVE actions
+                    const matchedMove = legalActs.find(a => a.type === 'MOVE' && a.fx === selectedOrigin.x && a.fy === selectedOrigin.y && a.tx === cursorX && a.ty === cursorY);
+                    if (matchedMove) {
+                        selectedOrigin = null;
+                        executeTargetAction(matchedMove, currentModel, stateKey);
+                    }
+                }
+            }
+            renderView();
+        }
+
+        function rotateManualPiece(directionSign) {
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            if (selectedManualModel !== currentModel || !selectedOrigin) return;
+
+            const pieces = gameState.pieces;
+            const stateKey = generateRLStateKey(pieces, gameState.turn);
+            const legalActs = getLegalActions(gameState.turn, pieces);
+
+            const targetPiece = getPieceAt(pieces, selectedOrigin.x, selectedOrigin.y);
+            if (targetPiece) {
+                const targetRot = normalizeRotation(targetPiece.rotation + directionSign);
+                const matchedRotate = legalActs.find(a => a.type === 'ROTATE' && a.x === selectedOrigin.x && a.y === selectedOrigin.y && a.rot === targetRot);
+                if (matchedRotate) {
+                    selectedOrigin = null;
+                    executeTargetAction(matchedRotate, currentModel, stateKey);
+                }
+            }
+            renderView();
+        }
+
+        function skipAndFireManual() {
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            if (selectedManualModel !== currentModel) return;
+
+            const stateKey = generateRLStateKey(gameState.pieces, gameState.turn);
+            selectedOrigin = null;
+            executeTargetAction({ type: 'FIRE' }, currentModel, stateKey);
+            renderView();
         }
 
         // --- DYNAMIC RENDERING INTERFACE MODULE ---
@@ -693,13 +775,22 @@
                 if (p && inBounds(p.x, p.y)) gridMatrix[p.y][p.x] = p;
             }
 
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            const isManualTurn = (selectedManualModel === currentModel);
+
             for (let y = 7; y >= 0; y--) {
                 for (let x = 0; x < 10; x++) {
                     const cell = document.createElement('div');
                     cell.className = "cell";
                     
-                    if (BLUE_RESERVED.some(s => s.x === x && s.y === y)) cell.classList.add('reserved-blue');
+                    if (BLUE_RESERVED.some(s => s.x === s.x && s.y === y)) cell.classList.add('reserved-blue');
                     if (RED_RESERVED.some(s => s.x === x && s.y === y)) cell.classList.add('reserved-red');
+
+                    // Apply visual interaction selectors if manual mode context active
+                    if (isManualTurn) {
+                        if (x === cursorX && y === cursorY) cell.classList.add('cursor');
+                        if (selectedOrigin && x === selectedOrigin.x && y === selectedOrigin.y) cell.classList.add('selected-piece');
+                    }
 
                     const p = gridMatrix[y][x];
                     const pathSegment = gameState.laserPath.find(seg => seg.x === x && seg.y === y);
@@ -715,6 +806,16 @@
                         cell.style.color = "#1f1f1f";
                         cell.textContent = "·";
                     }
+
+                    // Click bindings mapping to layout updates
+                    cell.addEventListener('click', () => {
+                        if (isManualTurn) {
+                            cursorX = x;
+                            cursorY = y;
+                            handleManualGridCommit();
+                        }
+                    });
+
                     gridEl.appendChild(cell);
                 }
             }
@@ -726,13 +827,49 @@
             document.getElementById('stat-q-a').textContent = `${Object.keys(Q_TABLE_A).length} mappings`;
             document.getElementById('stat-q-b').textContent = `${Object.keys(Q_TABLE_B).length} mappings`;
             document.getElementById('stat-steps').textContent = gameState.stepCount;
+
+            const modeLabel = document.getElementById('stat-execution-mode');
+            if (selectedManualModel) {
+                modeLabel.textContent = `MANUAL OVERRIDE: INTERACTIVE MODEL ${selectedManualModel} GAMEPLAY (STAKES: ±10000)`;
+                modeLabel.className = "stat-val p-purple";
+            } else {
+                modeLabel.textContent = "AUTOMATED AGENT TRAINING CYCLES RUNNING";
+                modeLabel.className = "stat-val";
+                modeLabel.style.color = "var(--green)";
+            }
         }
 
-        // --- SEPARATE ACTION HANDLER CAPTURES ---
+        // --- KEYBOARD LISTENER BINDINGS ---
+        window.addEventListener('keydown', (e) => {
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            if (selectedManualModel !== currentModel) return;
+
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key) || 
+                ['r', 'l', 'f'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            } else {
+                return;
+            }
+
+            if (e.key === 'ArrowUp' && cursorY < 7) cursorY++;
+            else if (e.key === 'ArrowDown' && cursorY > 0) cursorY--;
+            else if (e.key === 'ArrowLeft' && cursorX > 0) cursorX--;
+            else if (e.key === 'ArrowRight' && cursorX < 9) cursorX++;
+            else if (e.key === 'Enter') handleManualGridCommit();
+            else if (e.key.toLowerCase() === 'r') rotateManualPiece(1);
+            else if (e.key.toLowerCase() === 'l') rotateManualPiece(-1);
+            else if (e.key.toLowerCase() === 'f') skipAndFireManual();
+
+            renderView();
+        });
+
+        // --- BUTTON TRIGGER COMPILERS ---
         const btnToggle = document.getElementById('btn-toggle');
         const btnSpeed = document.getElementById('btn-speed');
         const btnDownloadA = document.getElementById('btn-download-a');
         const btnDownloadB = document.getElementById('btn-download-b');
+        const btnStakes = document.getElementById('btn-stakes');
+        const selectModel = document.getElementById('select-model');
         const btnReset = document.getElementById('btn-reset');
 
         btnToggle.addEventListener('click', () => {
@@ -765,10 +902,26 @@
             if (confirm("Clear isolated Q-Tables and trace structures?")) {
                 Q_TABLE_A = {}; Q_TABLE_B = {};
                 matchesCount = 0; modelAWins = 0; modelBWins = 0;
+                selectedManualModel = null; matchRewardMagnitude = 1000;
                 document.getElementById('ql-log-a').innerHTML = "";
                 document.getElementById('ql-log-b').innerHTML = "";
                 resetEnvironment(); renderView();
             }
+        });
+
+        // STAKES STIMULUS OVERRIDE CONTROLLER
+        btnStakes.addEventListener('click', () => {
+            const chosenTarget = selectModel.value;
+            selectedManualModel = chosenTarget;
+            matchRewardMagnitude = 10000; 
+            
+            // Set keyboard tracking cursor coordinates directly onto their starting position
+            if (chosenTarget === 'A') { cursorX = 4; cursorY = 0; }
+            else { cursorX = 5; cursorY = 7; }
+            
+            selectedOrigin = null;
+            renderView();
+            alert(`High-Stakes Mode engaged. Automated processing will pause on Model ${chosenTarget}'s turn. Use the visual viewport elements or arrow keys to make your move.`);
         });
 
         // DISTINCT EXPORTER CONTROLLERS
@@ -803,9 +956,18 @@
 
         function runLoop() {
             if (!isRunning) return;
+            
+            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
+            
+            // Interrupt self-play loop cycle if human control requested
+            if (selectedManualModel === currentModel) {
+                autoPlayInterval = setTimeout(runLoop, 100);
+                return;
+            }
+
             stepSimulation();
             if (loopDelay === 0) {
-                while (isRunning && loopDelay === 0 && gameHistoryTrace.length > 0) {
+                while (isRunning && loopDelay === 0 && gameHistoryTrace.length > 0 && selectedManualModel !== ((gameState.turn === 'BLUE') ? 'A' : 'B')) {
                     stepSimulation();
                 }
                 autoPlayInterval = setTimeout(runLoop, 1);
@@ -814,10 +976,9 @@
             }
         }
 
-        // --- ENGINES ENGAGED ---
+        // --- INITIALIZE BOOT SEQUENCE ---
         resetEnvironment();
         renderView();
-        triggerSystemWakeLock(); 
         runLoop();
     })();
     </script>

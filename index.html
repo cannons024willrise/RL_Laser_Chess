@@ -3,72 +3,121 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LASER CHESS - Engine & Q-State Trainer Dashboard</title>
+    <title>LASER CHESS - Twin Play RL Model Training System</title>
     <style>
         :root { 
-            --bg0: #0a0a0a; --bg1: #161616; --line: #2a2a2a;
-            --text: #b0b0b0; --bright: #ffffff; --error: #ff5555; 
-            --muted: #777777; --waiting: #00ff00; --blue: #00d4ff; --red: #ff3333;
-            --blue-tint: rgba(0, 212, 255, 0.12); --red-tint: rgba(255, 51, 51, 0.12);
-            --laser: #ffff00; --panel-bg: #111111;
+            --bg0: #050505; --bg1: #121212; --line: #262626;
+            --text: #a0a0a0; --bright: #ffffff; --error: #ff4444; 
+            --muted: #666666; --waiting: #00ff66; --blue: #00d4ff; --red: #ff3333;
+            --blue-tint: rgba(0, 212, 255, 0.1); --red-tint: rgba(255, 51, 51, 0.1);
+            --laser: #ffff00; --panel-bg: #0d0d0d; --accent: #ff00ff;
         }
         body { 
-            margin: 0; padding: 25px; font-size: 18px; color: var(--text); 
+            margin: 0; padding: 20px; font-size: 16px; color: var(--text); 
             font-family: 'Courier New', monospace; background: radial-gradient(circle at center, var(--bg1), var(--bg0)); 
         }
-        h2 { color: var(--bright); margin-top: 0; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
-        .dashboard { display: flex; flex-wrap: wrap; gap: 20px; }
-        .panel { flex: 1; min-width: 450px; background: var(--panel-bg); border: 1px solid var(--line); padding: 20px; border-radius: 4px; }
-        #terminal-log { display: flex; flex-direction: column; gap: 4px; max-height: 250px; overflow-y: auto; background: #000; border: 1px solid var(--line); padding: 10px; font-size: 15px; margin-bottom: 15px; }
-        .history-line { white-space: pre-wrap; line-height: 1.3; }
-        .matrix-container { display: inline-block; padding: 15px; border: 1px solid var(--line); background: #0d0d0d; }
+        h2 { color: var(--bright); margin-top: 0; border-bottom: 2px solid var(--line); padding-bottom: 6px; font-size: 22px; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: var(--panel-bg); border: 1px solid var(--line); padding: 15px; border-radius: 4px; }
+        .full-width { grid-column: 1 / -1; }
+        
+        /* Metrics Display */
+        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+        .metric-card { background: #000; border: 1px dashed #444; padding: 10px; text-align: center; }
+        .metric-val { font-size: 20px; font-weight: bold; color: var(--waiting); margin-top: 4px; }
+        
+        /* Board Graphics */
+        .matrix-container { display: inline-block; padding: 12px; border: 1px solid var(--line); background: #080808; }
         .matrix-row { display: flex; }
-        .matrix-cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); cursor: pointer; font-size: 24px; font-weight: bold; user-select: none; transition: background 0.1s; }
-        .matrix-cell:hover { background: #222; }
+        .matrix-cell { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); cursor: pointer; font-size: 22px; font-weight: bold; user-select: none; }
         .reserved-blue { background: var(--blue-tint); }
         .reserved-red { background: var(--red-tint); }
         .p-red { color: var(--red); }
         .p-blue { color: var(--blue); }
-        .cursor { outline: 3px solid var(--bright); outline-offset: -3px; z-index: 1; background: #252525; }
-        .selected-piece { background: #333311 !important; border-color: var(--laser); }
-        .error-msg { color: var(--error); font-weight: bold; }
-        .success-msg { color: var(--waiting); font-weight: bold; }
-        .system-msg { color: var(--muted); }
-        .highlight { color: var(--bright); }
+        .cursor { outline: 3px solid var(--bright); outline-offset: -3px; background: #1a1a1a; }
+        .selected-piece { background: #2a2a00 !important; border-color: var(--laser); }
         
-        /* Q-State Vector Styling */
-        .q-state-box { background: #050505; border: 1px dashed #444; padding: 12px; font-family: monospace; font-size: 13px; color: #00ffcc; white-space: pre; overflow-x: auto; margin-top: 10px; }
-        .controls-legend { font-size: 14px; color: var(--text); line-height: 1.5; margin-top: 15px; border-top: 1px solid var(--line); padding-top: 10px; }
-        .action-btn { background: #222; color: #fff; border: 1px solid #444; padding: 6px 12px; cursor: pointer; font-family: monospace; font-size: 14px; margin-right: 5px; }
+        /* Logs & Vectors */
+        #terminal-log { max-height: 200px; overflow-y: auto; background: #000; border: 1px solid var(--line); padding: 10px; font-size: 13px; margin-bottom: 10px; }
+        .history-line { white-space: pre-wrap; line-height: 1.3; }
+        .q-state-box { background: #020202; border: 1px solid #333; padding: 10px; font-size: 12px; color: #00ffcc; white-space: pre; overflow-x: auto; max-height: 160px; }
+        
+        /* Control Elements */
+        .controls-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+        .action-btn { background: #222; color: #fff; border: 1px solid #444; padding: 6px 12px; cursor: pointer; font-family: monospace; font-size: 14px; }
         .action-btn:hover { background: #333; border-color: #888; }
+        .btn-active { background: #aa00aa !important; border-color: var(--accent) !important; color: white; }
+        select, input { background: #000; color: #fff; border: 1px solid #444; padding: 4px; font-family: monospace; }
+        
+        .error-msg { color: var(--error); }
+        .success-msg { color: var(--waiting); }
+        .system-msg { color: var(--muted); }
     </style>
 </head>
 <body>
 
-    <h2>LASER CHESS Local Simulation Environment & Training Ground</h2>
+    <h2>LASER CHESS - Twin Play RL Model Architecture & Validation Deck</h2>
     
-    <div class="dashboard">
+    <div class="panel full-width">
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div>Total Episodes Played</div>
+                <div class="metric-val" id="m-episodes">0</div>
+            </div>
+            <div class="metric-card">
+                <div>Twin A (Blue) Wins</div>
+                <div class="metric-val" id="m-blue-wins" style="color: var(--blue);">0</div>
+            </div>
+            <div class="metric-card">
+                <div>Twin B (Red) Wins</div>
+                <div class="metric-val" id="m-red-wins" style="color: var(--red);">0</div>
+            </div>
+            <div class="metric-card">
+                <div>Current Epsilon (ε Exploration)</div>
+                <div class="metric-val" id="m-epsilon" style="color: var(--accent);">1.00</div>
+            </div>
+        </div>
+        
+        <div class="controls-row">
+            <strong>🤖 TWIN LOOP CONTROLS:</strong>
+            <button class="action-btn" id="toggle-train-btn" onclick="toggleTrainingLoop()">Start Twin Self-Play Mode</button>
+            <button class="action-btn" onclick="resetLocalGame()">Reset Environment</button>
+            
+            <label style="margin-left:15px;">Tick Interval:</label>
+            <select id="train-delay" onchange="updateTrainingSpeed()">
+                <option value="500">Normal Play (500ms)</option>
+                <option value="100">Fast Match (100ms)</option>
+                <option value="1">Turbo Optimization (1ms)</option>
+            </select>
+            
+            <label style="margin-left:15px;">Learning Rate (α):</label>
+            <input type="number" id="cfg-lr" value="0.1" step="0.05" style="width: 60px;" onchange="updateHyperparameters()">
+        </div>
+    </div>
+
+    <div class="grid-layout">
         <div class="panel">
             <div id="game-board-wrapper"></div>
             
-            <div class="controls-legend">
-                <strong>🕹️ INTERACTIVE CONTROLS:</strong><br>
-                • <b>Click/Arrow Keys</b> to reposition the board cursor.<br>
-                • <b>Enter / Space</b> to Select a piece, then Click/Move to an adjacent cell to execute a move.<br>
-                • Press <button class="action-btn" onclick="rotatePiece(-1)">L</button> (CCW Rotation) or 
-                  <button class="action-btn" onclick="rotatePiece(1)">R</button> (CW Rotation) on selected units.<br>
-                • Press <button class="action-btn" onclick="skipTurnAndFire()">F</button> to pass move actions and trigger immediate manual laser fire.<br>
-                • Press <button class="action-btn" onclick="resetLocalGame()">Reset Board</button> to restore the standard baseline training state.
+            <div style="font-size: 13px; color: var(--muted); margin-top: 15px; line-height: 1.4;">
+                <strong>🎮 Manual Intercept Controls (Human Override):</strong><br>
+                • Use Arrow Keys + Enter to select/execute component transformations.<br>
+                • Press <b>L / R</b> to trigger direct physical element rotations.<br>
+                • Press <b>F</b> to pass the movement calculation step and initiate standard end-of-turn manual fire vectors.
             </div>
         </div>
 
         <div class="panel">
-            <strong>System Telemetry Output:</strong>
+            <strong>Telemetry Stream Logs:</strong>
             <div id="terminal-log"></div>
 
-            <strong>Reinforcement Learning Vector Observation (Q-State Data):</strong>
-            <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">Direct snapshot sequence mapping [Piece Type + Rotation + Team Color] coordinates into an 8x10 array string:</div>
-            <div class="q-state-box" id="q-state-output">Generating State Map...</div>
+            <strong>Real-time Structural Q-State Map (Observation Frame):</strong>
+            <div class="q-state-box" id="q-state-output">Initializing Tensors...</div>
+            
+            <strong style="display:block; margin-top:15px;">Twin Network Matrix Parameters:</strong>
+            <div style="font-size: 12px; margin-top:5px; background:#000; border:1px solid var(--line); padding:8px; height:75px; overflow-y:auto;" id="model-weights-summary">
+                Awaiting first backpropagation parameter convergence gradient updates...
+            </div>
         </div>
     </div>
 
@@ -76,6 +125,7 @@
     (() => {
       'use strict';
 
+      // --- STRUCTURAL CONFIGURATIONS AND INITIALIZATIONS ---
       const logContainer = document.getElementById('terminal-log');
       const qStateOutput = document.getElementById('q-state-output');
       const boardWrapper = document.getElementById('game-board-wrapper');
@@ -84,9 +134,18 @@
       let latestState = null;
       let selectedOrigin = null;
       let isAnimatingLocalTurn = false;
-
-      const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
       
+      // RL Automation Loop Fields
+      let trainingActive = false;
+      let trainDelay = 500; 
+      let trainingTimer = null;
+      
+      // RL Performance Tracking Metrics
+      let statEpisodes = 0;
+      let statBlueWins = 0;
+      let statRedWins = 0;
+      
+      const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
       const ROTATION_TABLE = { 
         KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' }, 
         LASER: { 0: '⫝', 1: '⟜', 2: 'Ͳ', 3: 'Ð' }, 
@@ -124,13 +183,111 @@
               3: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } }
           },
           LASER: {
-              0: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-              1: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-              2: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-              3: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } }
+              0: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { block: true } },
+              1: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { block: true } },
+              2: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { block: true } },
+              3: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { block: true } }
           }
       };
 
+      // --- ZERO-DEPENDENCY TWIN PLAY REINFORCEMENT LEARNING ENGINE ---
+      class StandaloneTwinModelSystem {
+          constructor() {
+              this.weights = {}; 
+              this.alpha = 0.1;   // Learning Rate
+              this.gamma = 0.9;   // Discount Factor
+              this.epsilon = 1.0; // Exploration Probability
+              this.epsilonDecay = 0.9995;
+              this.minEpsilon = 0.1;
+          }
+
+          // Generate state feature hashing vector out of the raw Q-State configuration arrays
+          getFeatureFingerprint(pieces, action) {
+              // Extract positions of key entities relative to target transitions
+              let footprint = "";
+              if (action) {
+                  footprint += `${action.action}_${action.type[0]}_`;
+              }
+              pieces.forEach(p => {
+                  if(p.pieceType === 'KING' || p.pieceType === 'LASER') {
+                      footprint += `${p.color[0]}${p.pieceType[0]}:${p.x},${p.y}_`;
+                  }
+              });
+              return footprint;
+          }
+
+          getQValue(stateHash) {
+              if (this.weights[stateHash] === undefined) {
+                  this.weights[stateHash] = (Math.random() * 0.1) - 0.05; // Random uniform baseline initializer
+              }
+              return this.weights[stateHash];
+          }
+
+          selectAction(pieces, legalActions) {
+              if (legalActions.length === 0) return null;
+              
+              // Epsilon Greedy exploration step policy
+              if (Math.random() < this.epsilon && trainingActive) {
+                  return legalActions[Math.floor(Math.random() * legalActions.length)];
+              }
+
+              let bestQ = -Infinity;
+              let chosenActions = [];
+
+              for (let action of legalActions) {
+                  let hash = this.getFeatureFingerprint(pieces, action);
+                  let qVal = this.getQValue(hash);
+                  if (qVal > bestQ) {
+                      bestQ = qVal;
+                      chosenActions = [action];
+                  } else if (qVal === bestQ) {
+                      chosenActions.push(action);
+                  }
+              }
+              return chosenActions[Math.floor(Math.random() * chosenActions.length)];
+          }
+
+          updateGradients(oldPieces, action, reward, newPieces, nextLegalActions) {
+              let oldHash = this.getFeatureFingerprint(oldPieces, action);
+              let currentQ = this.getQValue(oldHash);
+              
+              let maxNextQ = 0;
+              if (nextLegalActions && nextLegalActions.length > 0) {
+                  maxNextQ = -Infinity;
+                  for (let nextAct of nextLegalActions) {
+                      let nextHash = this.getFeatureFingerprint(newPieces, nextAct);
+                      let q = this.getQValue(nextHash);
+                      if (q > maxNextQ) maxNextQ = q;
+                  }
+              }
+
+              // Temporal Difference Error optimization backpropagation calculation
+              let targetQ = reward + this.gamma * maxNextQ;
+              this.weights[oldHash] = currentQ + this.alpha * (targetQ - currentQ);
+
+              // Decay metrics
+              if (this.epsilon > this.minEpsilon) {
+                  this.epsilon *= this.epsilonDecay;
+              }
+              
+              // Update tracking views
+              document.getElementById('m-epsilon').textContent = this.epsilon.toFixed(3);
+              
+              // Print small snapshot slice of internal parameters
+              const keys = Object.keys(this.weights);
+              if (keys.length > 0) {
+                  let sliceText = `Vector Space Size: ${keys.length} features mapped.\n`;
+                  for(let i = Math.max(0, keys.length - 3); i < keys.length; i++) {
+                      sliceText += ` > ${keys[i].substring(0, 35)}... -> Q: ${this.weights[keys[i]].toFixed(4)}\n`;
+                  }
+                  document.getElementById('model-weights-summary').textContent = sliceText;
+              }
+          }
+      }
+
+      const RLEngine = new StandaloneTwinModelSystem();
+
+      // --- GAME LAWS AND SIMULATION ENVIRONMENT PIPELINES ---
       function addLog(text, cls='') {
           const d = document.createElement('div');
           d.className = `history-line ${cls}`;
@@ -208,7 +365,58 @@
               asciiMatrixOutput += rowString;
           }
           
-          qStateOutput.textContent = `--- MATRIX OBSERVATION SNAPSHOT ---\n${asciiMatrixOutput}\n--- FLATTENED ARRAY STRING BUFFER ---\n${JSON.stringify(stateVector)}`;
+          qStateOutput.textContent = `--- ACTIVE TENSOR CHANNEL SNAPSHOT ---\n${asciiMatrixOutput}\n--- RAW SERIALIZED VECTOR STREAM ---\n${JSON.stringify(stateVector)}`;
+      }
+
+      // Query complete vector permutations of all structural legal transforms
+      function generateLegalActions(state) {
+          const currentTurn = state.board.turn;
+          const pieces = state.board.pieces;
+          let legalActions = [{ action: 'Turn End' }]; // Passing/direct manual fire action boundary
+
+          pieces.forEach(p => {
+              if (p.color !== currentTurn) return;
+
+              // Rotation Transforms
+              if (p.pieceType !== 'KING' && p.pieceType !== 'LASER') {
+                  legalActions.push({ action: 'Rotate', x: p.x, y: p.y, type: p.pieceType, val: (p.rotation + 1) % 4 });
+                  legalActions.push({ action: 'Rotate', x: p.x, y: p.y, type: p.pieceType, val: (p.rotation + 3) % 4 });
+              } else if (p.pieceType === 'LASER') {
+                  // Specific restricted firing arc parameters matching index.html validation loops
+                  if (p.color === 'BLUE') {
+                      [0, 3].forEach(r => { if(r !== p.rotation) legalActions.push({ action: 'Rotate', x: p.x, y: p.y, type: p.pieceType, val: r }); });
+                  } else {
+                      [1, 2].forEach(r => { if(r !== p.rotation) legalActions.push({ action: 'Rotate', x: p.x, y: p.y, type: p.pieceType, val: r }); });
+                  }
+              }
+
+              // Translation/Kinematic Shifts
+              if (p.pieceType !== 'LASER') {
+                  for (let dx = -1; dx <= 1; dx++) {
+                      for (let dy = -1; dy <= 1; dy++) {
+                          if (dx === 0 && dy === 0) continue;
+                          let nx = p.x + dx;
+                          let ny = p.y + dy;
+                          if (!inBounds(nx, ny)) continue;
+                          if (isReservedSquare(nx, ny, p.color)) continue;
+
+                          let targetPiece = getPieceAt(pieces, nx, ny);
+                          if (!targetPiece) {
+                              legalActions.push({ action: 'Move', x: p.x, y: p.y, type: p.pieceType, tx: nx, ty: ny });
+                          } else {
+                              // Switch component specific spatial swap rule evaluation logic
+                              if (p.pieceType === 'SWITCH' && (targetPiece.pieceType === 'DEFLECTOR' || targetPiece.pieceType === 'DEFENDER')) {
+                                  if (!isReservedSquare(p.x, p.y, targetPiece.color)) {
+                                      legalActions.push({ action: 'Move', x: p.x, y: p.y, type: p.pieceType, tx: nx, ty: ny, swap: true });
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          });
+
+          return legalActions;
       }
 
       function initLocalGame() {
@@ -252,7 +460,7 @@
 
           selectedOrigin = null;
           isAnimatingLocalTurn = false;
-          addLog("Environment Initialized. Turn: BLUE.", "system-msg");
+          addLog("Training Environment Reset Completed.", "system-msg");
           printTerminalMatrix(latestState);
       }
 
@@ -274,7 +482,7 @@
           const statusBar = document.createElement('div');
           statusBar.className = 'history-line';
           statusBar.style.marginBottom = '10px';
-          statusBar.innerHTML = `[MOVE #${state.board.moveNumber}] Active Agent Strategy Turn: <span class="p-${currentTurn.toLowerCase()}">${currentTurn}</span>`;
+          statusBar.innerHTML = `[EPISODE #${statEpisodes}] Strategy Agent Evaluator Axis: <span class="p-${currentTurn.toLowerCase()}">${currentTurn}</span>`;
           container.appendChild(statusBar);
 
           for (let y = 7; y >= 0; y--) {
@@ -290,7 +498,7 @@
                   if (selectedOrigin && x === selectedOrigin.x && y === selectedOrigin.y) cellEl.classList.add('selected-piece');
 
                   cellEl.addEventListener('click', (e) => { 
-                      if (isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+                      if (isAnimatingLocalTurn || latestState.status !== "ACTIVE" || trainingActive) return;
                       cursorX = x; cursorY = y; 
                       handleGridAction(); 
                   });
@@ -314,157 +522,162 @@
               container.appendChild(rowEl);
           }
           
-          if (state.status && state.status.endsWith('_WIN')) {
-              const winner = state.status.split('_')[0];
-              const div = document.createElement('div');
-              div.className = 'success-msg';
-              div.style.marginTop = '10px';
-              div.textContent = `TERMINAL MATCH OVER: ${winner} WINS!`;
-              container.appendChild(div);
-          }
-          
           boardWrapper.innerHTML = '';
           boardWrapper.appendChild(container);
           generateAndRenderQState(state);
       }
 
+      // Core environment transition execution block 
       async function processGameAction(intent) {
           if (!latestState || latestState.status !== "ACTIVE") return;
           
           const currentTurn = latestState.board.turn;
-          
-          // Action Layer Evaluation
-          try {
-              if (intent.action !== 'Turn End' && intent.piece) {
-                  const piecesDryRun = latestState.board.pieces;
-                  const dbPiece = getPieceAt(piecesDryRun, intent.piece.x, intent.piece.y);
-                  
-                  if (!dbPiece) throw new Error("Validation Exception: Empty cell vector selection.");
-                  if (dbPiece.color !== currentTurn) throw new Error(`Turn violation: Active state is restricted to ${currentTurn}.`);
-                  
-                  if (intent.action === 'Move') {
-                      const nx = intent.changes.new.x; 
-                      const ny = intent.changes.new.y; 
-                      const dx = Math.abs(nx - dbPiece.x); 
-                      const dy = Math.abs(ny - dbPiece.y);
-                      
-                      if (dx > 1 || dy > 1 || (dx === 0 && dy === 0)) throw new Error("Invalid kinematics: Out-of-bounds offset step.");
-                      if (dbPiece.pieceType === 'LASER') throw new Error("Kinematics Lock: Structural columns are immutable.");
-                      if (isReservedSquare(nx, ny, dbPiece.color)) throw new Error("Landing Zone Protected: Target row belongs to opponent.");
-                      
-                      const pieceAtTarget = getPieceAt(piecesDryRun, nx, ny);
-                      if (pieceAtTarget) {
-                          if (dbPiece.pieceType === 'SWITCH' && (pieceAtTarget.pieceType === 'DEFLECTOR' || pieceAtTarget.pieceType === 'DEFENDER')) {
-                              if (isReservedSquare(dbPiece.x, dbPiece.y, pieceAtTarget.color)) throw new Error("Kinematic Lock: Trapped switch swap rule breach.");
-                          } else { 
-                              throw new Error("Overlap Blocked: Spatial configuration conflict."); 
-                          }
-                      }
-                  } else if (intent.action === 'Rotate') {
-                      const newRot = intent.changes.new.rotation;
-                      if (dbPiece.pieceType === 'KING') throw new Error("Rotation Lock: Core unit system fixed.");
-                      if (dbPiece.pieceType === 'LASER') {
-                          if (dbPiece.color === 'BLUE' && (newRot === 1 || newRot === 2)) throw new Error("Orientation Exception: Blue firing arc restricted to 0 or 3.");
-                          if (dbPiece.color === 'RED' && (newRot === 3 || newRot === 0)) throw new Error("Orientation Exception: Red firing arc restricted to 1 or 2.");
-                      }
-                  }
-              }
-          } catch (localErr) { 
-              addLog(localErr.message, 'error-msg'); 
-              selectedOrigin = null; 
-              printTerminalMatrix(latestState); 
-              return; 
-          }
-          
           isAnimatingLocalTurn = true; 
-          let pieces = latestState.board.pieces;
           
-          // Action State Mutations
-          if (intent.action !== 'Turn End' && intent.piece) {
-              const dbPiece = getPieceAt(pieces, intent.piece.x, intent.piece.y);
-              if (intent.action === 'Move') {
-                  const nx = intent.changes.new.x; 
-                  const ny = intent.changes.new.y; 
-                  const pieceAtTarget = getPieceAt(pieces, nx, ny);
-                  if (pieceAtTarget && dbPiece.pieceType === 'SWITCH') { 
-                      pieceAtTarget.x = dbPiece.x; 
-                      pieceAtTarget.y = dbPiece.y; 
+          let pieces = latestState.board.pieces;
+          let reward = -0.1; // Default negative step-time penalty to encourage optimal paths
+          const oldPiecesBackup = JSON.parse(JSON.stringify(pieces));
+
+          // Apply state mutations
+          if (intent.action === 'Move') {
+              const dbPiece = getPieceAt(pieces, intent.x, intent.y);
+              if (dbPiece) {
+                  const targetPiece = getPieceAt(pieces, intent.tx, intent.ty);
+                  if (targetPiece && intent.swap) {
+                      targetPiece.x = dbPiece.x;
+                      targetPiece.y = dbPiece.y;
                   }
-                  dbPiece.x = nx; dbPiece.y = ny; 
-                  addLog(`Action: Moved piece to (${nx},${ny})`, 'success-msg');
-              } else if (intent.action === 'Rotate') {
-                  dbPiece.rotation = intent.changes.new.rotation; 
-                  addLog(`Action: Rotated piece to orientation ${dbPiece.rotation}`, 'success-msg');
+                  dbPiece.x = intent.tx;
+                  dbPiece.y = intent.ty;
               }
-              printTerminalMatrix(latestState);
-              await new Promise(r => setTimeout(r, 200));
-          } else {
-              addLog("Action: Step action passed; triggering direct discharge vector.", 'system-msg');
+          } else if (intent.action === 'Rotate') {
+              const dbPiece = getPieceAt(pieces, intent.x, intent.y);
+              if (dbPiece) dbPiece.rotation = intent.val;
           }
 
-          // Automated Laser Trace Evaluation Step
+          // Evaluate Auto Firing Vector
           const shooter = pieces.find(p => p && p.pieceType === 'LASER' && p.color === currentTurn);
           if (shooter) {
               const startDir = normalizeRotation(shooter.rotation);
               const trace = resolveLaserVector(shooter.x + DIRS[startDir].dx, shooter.y + DIRS[startDir].dy, startDir, pieces);
               
-              printTerminalMatrix(latestState, trace.path);
-              await new Promise(r => setTimeout(r, 600));
+              if (trainDelay >= 100) {
+                  printTerminalMatrix(latestState, trace.path);
+                  await new Promise(r => setTimeout(r, Math.min(trainDelay, 300)));
+              }
 
               if (trace.hit && trace.hit.destroyed) {
                   const victim = trace.hit.piece;
                   pieces = pieces.filter(p => !(p.x === victim.x && p.y === victim.y));
                   latestState.board.pieces = pieces;
-                  addLog(`Discharge impact vaporized ${victim.color} ${victim.pieceType} at (${victim.x}, ${victim.y}).`, "error-msg");
                   
-                  if (victim.pieceType === 'KING') { 
+                  // Reward value definitions
+                  if (victim.pieceType === 'KING') {
+                      reward = 100.0; // Core Terminal Matrix Target Accomplished
                       const winnerColor = victim.color === 'RED' ? 'BLUE' : 'RED';
                       latestState.status = `${winnerColor}_WIN`; 
-                      addLog(`CRITICAL: ${victim.color} KING TERMINATED. ${winnerColor} WINS MATCH.`, "success-msg"); 
+                      
+                      if(winnerColor === 'BLUE') statBlueWins++; else statRedWins++;
+                      statEpisodes++;
+                      document.getElementById('m-episodes').textContent = statEpisodes;
+                      document.getElementById('m-blue-wins').textContent = statBlueWins;
+                      document.getElementById('m-red-wins').textContent = statRedWins;
+                      
+                      addLog(`TERMINAL MATCH OVER: ${winnerColor} CRUSHED ${victim.color} KING.`, "success-msg");
+                  } else {
+                      reward = (victim.color === currentTurn) ? -15.0 : 15.0; // Friendly fire vs opponent deletion reward scaling
                   }
               }
           }
           
+          // Environment State Management Swap
           if (latestState.status === "ACTIVE") {
               latestState.board.turn = currentTurn === 'RED' ? 'BLUE' : 'RED';
               latestState.board.moveNumber++;
           }
           
+          // Train policy networks via Backpropagation / TD Learning step
+          const nextLegalActions = generateLegalActions(latestState);
+          RLEngine.updateGradients(oldPiecesBackup, intent, reward, pieces, nextLegalActions);
+
+          if (latestState.status !== "ACTIVE") {
+              // Auto reset environment to spin up next continuous episode
+              initLocalGame();
+          }
+
           selectedOrigin = null;
           isAnimatingLocalTurn = false; 
           printTerminalMatrix(latestState);
       }
 
+      // --- AUTOMATED LOOP STEP TIMER ENGINE ---
+      async function rloopStep() {
+          if (!trainingActive || isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+          
+          const legalActions = generateLegalActions(latestState);
+          const chosenAction = RLEngine.selectAction(latestState.board.pieces, legalActions);
+          
+          if (chosenAction) {
+              await processGameAction(chosenAction);
+          }
+          
+          if (trainingActive) {
+              trainingTimer = setTimeout(rloopStep, trainDelay);
+          }
+      }
+
+      window.toggleTrainingLoop = function() {
+          trainingActive = !trainingActive;
+          const btn = document.getElementById('toggle-train-btn');
+          if (trainingActive) {
+              btn.textContent = "Halt Twin Training System";
+              btn.classList.add('btn-active');
+              addLog("Twin Network Loop Engaged. Optimizing Model Parameters...", "success-msg");
+              rloopStep();
+          } else {
+              btn.textContent = "Start Twin Self-Play Mode";
+              btn.classList.remove('btn-active');
+              if (trainingTimer) clearTimeout(trainingTimer);
+              addLog("Twin play automation loops suspended.", "error-msg");
+          }
+      };
+
+      window.updateTrainingSpeed = function() {
+          trainDelay = parseInt(document.getElementById('train-delay').value);
+      };
+
+      window.updateHyperparameters = function() {
+          const val = parseFloat(document.getElementById('cfg-lr').value);
+          if(!isNaN(val)) RLEngine.alpha = val;
+      };
+
       window.skipTurnAndFire = async function() { 
-          if (isAnimatingLocalTurn) return;
+          if (isAnimatingLocalTurn || trainingActive) return;
           await processGameAction({ action: 'Turn End' }); 
       };
 
       window.rotatePiece = async function(dir) {
-          if (!selectedOrigin || isAnimatingLocalTurn) return;
+          if (!selectedOrigin || isAnimatingLocalTurn || trainingActive) return;
           const pieces = latestState.board.pieces; 
           const p = pieces.find(p => p.x === selectedOrigin.x && p.y === selectedOrigin.y);
           if (p) { 
               const nextRotation = ((p.rotation || 0) + dir + 4) % 4; 
               await processGameAction({ 
                   action: 'Rotate', 
-                  piece: { x: selectedOrigin.x, y: selectedOrigin.y, type: p.pieceType }, 
-                  changes: { new: { rotation: nextRotation } } 
+                  x: selectedOrigin.x, y: selectedOrigin.y, type: p.pieceType,
+                  val: nextRotation
               }); 
           }
       };
 
       async function handleGridAction() {
-          if (isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+          if (isAnimatingLocalTurn || latestState.status !== "ACTIVE" || trainingActive) return;
           const pieces = latestState.board.pieces;
 
           if (!selectedOrigin) {
               const p = pieces.find(p => p.x === cursorX && p.y === cursorY);
               if (p) { 
-                  if (p.color !== latestState.board.turn) {
-                      addLog(`Select Violation: Chosen target cell belongs to opponent engine.`, 'error-msg');
-                      return;
-                  }
+                  if (p.color !== latestState.board.turn) return;
                   selectedOrigin = { x: cursorX, y: cursorY }; 
               }
               printTerminalMatrix(latestState);
@@ -474,18 +687,22 @@
                   selectedOrigin = null; 
                   printTerminalMatrix(latestState); 
               } else { 
+                  const targetPiece = getPieceAt(pieces, cursorX, cursorY);
+                  const isSwap = movingPiece && movingPiece.pieceType === 'SWITCH' && targetPiece && (targetPiece.pieceType === 'DEFLECTOR' || targetPiece.pieceType === 'DEFENDER');
+                  
                   await processGameAction({ 
                       action: 'Move', 
-                      piece: { x: selectedOrigin.x, y: selectedOrigin.y, type: movingPiece ? movingPiece.pieceType : null }, 
-                      changes: { new: { x: cursorX, y: cursorY } } 
+                      x: selectedOrigin.x, y: selectedOrigin.y, type: movingPiece ? movingPiece.pieceType : null,
+                      tx: cursorX, ty: cursorY,
+                      swap: isSwap
                   }); 
               }
           }
       }
 
-      // Hardware Input Event Handlers
+      // --- HARDWARE INTERRUPT LISTENERS ---
       window.addEventListener('keydown', (e) => {
-          if (isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+          if (isAnimatingLocalTurn || latestState.status !== "ACTIVE" || trainingActive) return;
           
           if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(e.key) || 
               ['r', 'l', 'f'].includes(e.key.toLowerCase())) {

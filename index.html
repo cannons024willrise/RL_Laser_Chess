@@ -3,84 +3,92 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LASER CHESS - Canonical RL Engine</title>
+    <title>LASER CHESS - Integrated RL Engine</title>
     <style>
-        :root { --bg0: #0a0a0a; --bg1: #1a1a1a; --line: #2a2a2a; --text: #b0b0b0; --bright: #ffffff; --blue: #00d4ff; --red: #ff3333; }
-        body { margin: 0; padding: 30px; font-family: monospace; background: var(--bg0); color: var(--text); }
-        #dashboard { background: var(--bg1); padding: 15px; margin-bottom: 20px; display: flex; gap: 10px; }
-        .matrix-container { background: var(--bg1); padding: 20px; border: 1px solid var(--line); display: inline-block; }
+        @font-face { font-family: 'Unifont'; src: url('unifont-15.0.01.ttf') format('truetype'); }
+        :root { 
+            --bg0: #0a0a0a; --bg1: #1a1a1a; --line: #2a2a2a; --text: #b0b0b0; 
+            --bright: #ffffff; --error: #ff5555; --muted: #999999; --blue: #00d4ff; --red: #ff3333;
+        }
+        body { margin: 0; padding: 30px; font-family: 'Unifont', monospace; background: var(--bg0); color: var(--text); }
+        #ai-dashboard { border: 1px solid var(--line); padding: 15px; margin-bottom: 20px; background: var(--bg1); }
+        .matrix-container { background: var(--bg1); padding: 20px; border: 1px solid var(--line); margin-top: 10px; }
         .matrix-row { display: flex; }
-        .matrix-cell { width: 30px; height: 30px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+        .matrix-cell { width: 40px; height: 40px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .p-red { color: var(--red); } .p-blue { color: var(--blue); }
+        .cursor { outline: 2px solid var(--bright); }
+        .history-line { white-space: pre-wrap; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <div id="dashboard">
-        <button id="btn-train">Start Auto-Training</button>
-        <button id="btn-dl-q">Download Q-Tables</button>
-        <span id="status">Status: Ready</span>
+    <div id="ai-dashboard">
+        <h3 style="margin-top:0; color: var(--blue);">🧠 RL OBSERVATION DECK</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+            <div>Status: <span id="obs-status">IDLE</span></div>
+            <div>Q-Table: <span id="obs-qsize">0</span></div>
+            <div>Mode: <span id="obs-mode">Twin Play (±1000)</span></div>
+        </div>
+        <div id="training-log" style="height: 60px; overflow-y: scroll; margin-top: 10px; font-size: 11px; background: #000; padding: 5px;"></div>
     </div>
+
     <div id="terminal-log"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <script>
     (() => {
-        // --- Core RL Configuration ---
-        let Q_TABLE = { 'RED': {}, 'BLUE': {} };
-        const ALPHA = 0.1, GAMMA = 0.95, EPSILON = 0.1;
+      'use strict';
+      
+      // --- RL CONFIG ---
+      let Q_TABLE = { 'RED': {}, 'BLUE': {} };
+      let isHumanVsAI = false; // Toggle this to switch rewards
+      const REWARD_SCALE = () => isHumanVsAI ? 10000 : 1000;
 
-        // CANONICAL STATE NORMALIZATION
-        // This ensures the AI treats symmetric/structural similarities as the same state,
-        // rather than treating every tiny coordinate shift as a new 'impossible' problem.
-        function getCanonicalState(state) {
-            const pieces = state.board.pieces.map(p => 
-                `${p.pieceType[0]}-${p.color[0]}-${p.rotation}-${p.x},${p.y}`
-            ).sort().join('|');
-            return `${state.board.turn}-${pieces}`;
-        }
+      // --- Core Game Init (Combined) ---
+      let cursorX = 0, cursorY = 0, latestState = null, isLMode = false;
+      const KEY_LOCAL_STATE = 'ls_local_state';
 
-        // --- WakeLock Manager ---
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    const lock = await navigator.wakeLock.request('screen');
-                    console.log('System WakeLock Active');
-                }
-            } catch (err) { console.error("WakeLock blocked"); }
-        }
+      function getCanonicalState(state) {
+          const pieces = state.board.pieces.map(p => `${p.pieceType[0]}-${p.color[0]}-${p.rotation}-${p.x},${p.y}`).sort().join('|');
+          return `${state.board.turn}-${pieces}`;
+      }
 
-        // --- Training Engine ---
-        let isTraining = false;
-        document.getElementById('btn-train').addEventListener('click', () => {
-            isTraining = !isTraining;
-            if(isTraining) {
-                requestWakeLock();
-                runTrainingLoop();
-                document.getElementById('btn-train').textContent = "Stop Training";
-            } else {
-                document.getElementById('btn-train').textContent = "Start Auto-Training";
-            }
-        });
+      function updateObservability(action, reward) {
+          document.getElementById('obs-status').textContent = "Active";
+          document.getElementById('obs-qsize').textContent = Object.keys(Q_TABLE.RED).length + Object.keys(Q_TABLE.BLUE).length;
+          document.getElementById('obs-mode').textContent = isHumanVsAI ? "Human vs Model (±10,000)" : "Twin Play (±1,000)";
+          
+          const log = document.getElementById('training-log');
+          const entry = document.createElement('div');
+          entry.textContent = `> Action: ${action} | Reward: ${reward}`;
+          log.prepend(entry);
+      }
 
-        // --- Persistence ---
-        document.getElementById('btn-dl-q').addEventListener('click', () => {
-            const blob = new Blob([JSON.stringify(Q_TABLE)], {type: "application/json"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'q_tables.json'; a.click();
-        });
-
-        async function runTrainingLoop() {
-            while(isTraining) {
-                // ... (Integration with your game engine loop)
-                // The training engine uses getCanonicalState() instead of raw hashing
-                const stateKey = getCanonicalState(latestState);
-                // ... (Q-Table update logic)
-                await new Promise(r => setTimeout(r, 0)); // Non-blocking
-            }
-        }
+      // --- INTEGRATED GAME ACTION ---
+      async function processGameAction(intent) {
+        // ... (Keep existing game logic here)
+        // REWARD LOGIC INTEGRATION
+        const victoryReward = REWARD_SCALE();
         
-        // Initial setup...
+        // When a king is destroyed:
+        if (victim && victim.pieceType === 'KING') { 
+            const winner = victim.color === 'RED' ? 'BLUE' : 'RED';
+            const reward = winner === 'BLUE' ? victoryReward : -victoryReward;
+            updateObservability("KING_DEATH", reward);
+            // Apply Q-Table update with REWARD_SCALE()
+        }
+      }
+
+      // --- MOCK BOOT FOR DEMO ---
+      async function boot() {
+          console.log("Engine Booting...");
+          // Placeholder for your firebase/init logic
+          // startLocalGame() would be called here
+      }
+      
+      window.addEventListener('DOMContentLoaded', boot);
     })();
     </script>
 </body>

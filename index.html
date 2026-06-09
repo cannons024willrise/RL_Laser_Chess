@@ -1,985 +1,512 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laser Chess RL Engine</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LASER CHESS - Engine & Q-State Trainer Dashboard</title>
     <style>
-        :root {
-            --bg0: #0a0a0a;
-            --bg1: #141414;
-            --border: #262626;
-            --text: #a3a3a3;
-            --bright: #ffffff;
-            --blue: #00d4ff;
-            --red: #ff3333;
-            --yellow: #ffff00;
-            --green: #00ff66;
-            --purple: #bd93f9;
-            --cell-size: 42px;
-            --blue-tint: rgba(0, 212, 255, 0.12);
-            --red-tint: rgba(255, 51, 51, 0.12);
+        :root { 
+            --bg0: #0a0a0a; --bg1: #161616; --line: #2a2a2a;
+            --text: #b0b0b0; --bright: #ffffff; --error: #ff5555; 
+            --muted: #777777; --waiting: #00ff00; --blue: #00d4ff; --red: #ff3333;
+            --blue-tint: rgba(0, 212, 255, 0.12); --red-tint: rgba(255, 51, 51, 0.12);
+            --laser: #ffff00; --panel-bg: #111111;
         }
-
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: var(--bg0);
-            color: var(--text);
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
+        body { 
+            margin: 0; padding: 25px; font-size: 18px; color: var(--text); 
+            font-family: 'Courier New', monospace; background: radial-gradient(circle at center, var(--bg1), var(--bg0)); 
         }
-
-        header {
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            color: var(--bright);
-            margin: 0;
-            font-size: 20px;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 1300px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .panel {
-            background: var(--bg1);
-            border: 1px solid var(--border);
-            padding: 15px;
-            border-radius: 4px;
-        }
-
-        .panel-title {
-            color: var(--bright);
-            font-weight: bold;
-            margin-bottom: 10px;
-            border-bottom: 1px dashed var(--border);
-            padding-bottom: 5px;
-            text-transform: uppercase;
-        }
-
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .stat-box {
-            background: var(--bg0);
-            border: 1px solid var(--border);
-            padding: 8px;
-        }
-
-        .stat-val {
-            font-size: 18px;
-            font-weight: bold;
-            color: var(--bright);
-        }
-
-        .p-blue { color: var(--blue); }
+        h2 { color: var(--bright); margin-top: 0; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+        .dashboard { display: flex; flex-wrap: wrap; gap: 20px; }
+        .panel { flex: 1; min-width: 450px; background: var(--panel-bg); border: 1px solid var(--line); padding: 20px; border-radius: 4px; }
+        #terminal-log { display: flex; flex-direction: column; gap: 4px; max-height: 250px; overflow-y: auto; background: #000; border: 1px solid var(--line); padding: 10px; font-size: 15px; margin-bottom: 15px; }
+        .history-line { white-space: pre-wrap; line-height: 1.3; }
+        .matrix-container { display: inline-block; padding: 15px; border: 1px solid var(--line); background: #0d0d0d; }
+        .matrix-row { display: flex; }
+        .matrix-cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); cursor: pointer; font-size: 24px; font-weight: bold; user-select: none; transition: background 0.1s; }
+        .matrix-cell:hover { background: #222; }
+        .reserved-blue { background: var(--blue-tint); }
+        .reserved-red { background: var(--red-tint); }
         .p-red { color: var(--red); }
-        .p-purple { color: var(--purple); }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        button, select {
-            background: #1c1c1c;
-            color: var(--bright);
-            border: 1px solid #333;
-            padding: 8px 14px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: bold;
-            border-radius: 3px;
-        }
-
-        select {
-            cursor: default;
-            outline: none;
-        }
-
-        button:hover {
-            background: #2a2a2a;
-            border-color: #555;
-        }
-
-        button.active {
-            background: var(--green);
-            color: #000;
-            border-color: var(--green);
-        }
-
-        button.download-a { border-left: 4px solid var(--blue); }
-        button.download-b { border-left: 4px solid var(--red); }
-        button.action-stakes { border-left: 4px solid var(--purple); background: #241931; }
-        button.action-stakes:hover { background: #322344; }
-
-        .board-container {
-            display: flex;
-            justify-content: center;
-            background: var(--bg0);
-            padding: 15px;
-            border: 1px solid var(--border);
-        }
-
-        .board-grid {
-            display: grid;
-            grid-template-columns: repeat(10, var(--cell-size));
-            grid-template-rows: repeat(8, var(--cell-size));
-            gap: 1px;
-            background: var(--border);
-            border: 3px solid #333;
-        }
-
-        .cell {
-            background: var(--bg0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            font-weight: bold;
-            user-select: none;
-        }
-
-        .cell.reserved-blue { background-color: var(--blue-tint); }
-        .cell.reserved-red { background-color: var(--red-tint); }
-        .cell.laser-path { background: rgba(255, 255, 0, 0.12); color: var(--yellow); }
-        .cell.cursor { outline: 2px solid var(--bright); z-index: 2; }
-        .cell.selected-piece { background: #2a2a2a; box-shadow: inset 0 0 8px rgba(255,255,255,0.2); }
-
-        .logs-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        @media (max-width: 768px) {
-            .logs-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .log-column {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .log-box {
-            background: var(--bg0);
-            border: 1px solid var(--border);
-            height: 440px;
-            overflow-y: scroll;
-            padding: 10px;
-            font-size: 11px;
-        }
-
-        .log-box.model-a-box { border-top: 3px solid var(--blue); }
-        .log-box.model-b-box { border-top: 3px solid var(--red); }
-
-        .log-entry {
-            margin-bottom: 5px;
-            white-space: pre-wrap;
-            border-bottom: 1px solid #141414;
-            padding-bottom: 4px;
-        }
+        .p-blue { color: var(--blue); }
+        .cursor { outline: 3px solid var(--bright); outline-offset: -3px; z-index: 1; background: #252525; }
+        .selected-piece { background: #333311 !important; border-color: var(--laser); }
+        .error-msg { color: var(--error); font-weight: bold; }
+        .success-msg { color: var(--waiting); font-weight: bold; }
+        .system-msg { color: var(--muted); }
+        .highlight { color: var(--bright); }
+        
+        /* Q-State Vector Styling */
+        .q-state-box { background: #050505; border: 1px dashed #444; padding: 12px; font-family: monospace; font-size: 13px; color: #00ffcc; white-space: pre; overflow-x: auto; margin-top: 10px; }
+        .controls-legend { font-size: 14px; color: var(--text); line-height: 1.5; margin-top: 15px; border-top: 1px solid var(--line); padding-top: 10px; }
+        .action-btn { background: #222; color: #fff; border: 1px solid #444; padding: 6px 12px; cursor: pointer; font-family: monospace; font-size: 14px; margin-right: 5px; }
+        .action-btn:hover { background: #333; border-color: #888; }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>LASER CHESS RL - ASYMMETRIC LOGGING WITH HIGH-STAKES INTERACTIVE OVERRIDE</h1>
-        <p>Bifurcated compilation logs, separate JSON exporters, and human-in-the-loop demonstration injection vectors.</p>
-    </header>
-
-    <div class="controls">
-        <button id="btn-toggle" class="active">PAUSE TRAINING</button>
-        <button id="btn-speed">SPEED: TURBO OVERDRIVE (0ms)</button>
-        <button id="btn-download-a" class="download-a">DOWNLOAD MODEL A JSON</button>
-        <button id="btn-download-b" class="download-b">DOWNLOAD MODEL B JSON</button>
-        
-        <div style="border-left: 1px solid var(--border); padding-left: 10px; display: flex; gap: 6px; align-items: center;">
-            <label for="select-model" style="font-weight: bold; font-size: 11px;">TARGET AGENT:</label>
-            <select id="select-model">
-                <option value="A">MODEL A (BLUE)</option>
-                <option value="B">MODEL B (RED)</option>
-            </select>
-            <button id="btn-stakes" class="action-stakes">INJECT ±10000 MANUAL MATCH</button>
-        </div>
-
-        <button id="btn-reset" style="border-color: var(--red); margin-left: auto;">RESET DATA arrays</button>
-    </div>
-
-    <div class="container">
+    <h2>LASER CHESS Local Simulation Environment & Training Ground</h2>
+    
+    <div class="dashboard">
         <div class="panel">
-            <div class="panel-title">📡 Live Interface Viewport</div>
-            <div class="dashboard">
-                <div class="stat-box">
-                    <div>Matches Completed</div>
-                    <div id="stat-matches" class="stat-val">0</div>
-                </div>
-                <div class="stat-box">
-                    <div>Active Phase State</div>
-                    <div id="stat-turn" class="stat-val"><span class="p-blue">BLUE</span></div>
-                </div>
-                <div class="stat-box">
-                    <div>Model A (Blue) Wins</div>
-                    <div id="stat-wins-a" class="stat-val p-blue">0</div>
-                </div>
-                <div class="stat-box">
-                    <div>Model B (Red) Wins</div>
-                    <div id="stat-wins-b" class="stat-val p-red">0</div>
-                </div>
-                <div class="stat-box" style="grid-column: span 2; border-color: #333;">
-                    <div>Match Execution Mode</div>
-                    <div id="stat-execution-mode" class="stat-val" style="color: var(--green);">AUTOMATED AGENT TRAINING LMode</div>
-                </div>
-            </div>
+            <div id="game-board-wrapper"></div>
             
-            <div class="board-container">
-                <div class="board-grid" id="viewport-grid"></div>
-            </div>
-            <div style="font-size: 11px; margin-top: 10px; color: #666; line-height: 1.4;">
-                * When Manual Match is active: Use <b>Arrow Keys</b> to steer cursor, <b>Enter</b> to select/move pieces, <b>L / R</b> to rotate selected piece, and <b>F</b> to bypass move and fire laser.
+            <div class="controls-legend">
+                <strong>🕹️ INTERACTIVE CONTROLS:</strong><br>
+                • <b>Click/Arrow Keys</b> to reposition the board cursor.<br>
+                • <b>Enter / Space</b> to Select a piece, then Click/Move to an adjacent cell to execute a move.<br>
+                • Press <button class="action-btn" onclick="rotatePiece(-1)">L</button> (CCW Rotation) or 
+                  <button class="action-btn" onclick="rotatePiece(1)">R</button> (CW Rotation) on selected units.<br>
+                • Press <button class="action-btn" onclick="skipTurnAndFire()">F</button> to pass move actions and trigger immediate manual laser fire.<br>
+                • Press <button class="action-btn" onclick="resetLocalGame()">Reset Board</button> to restore the standard baseline training state.
             </div>
         </div>
 
         <div class="panel">
-            <div class="panel-title">💾 Asymmetric Update Matrix Interfaces</div>
-            <div class="dashboard">
-                <div class="stat-box">
-                    <div>Model A Table Size</div>
-                    <div id="stat-q-a" class="stat-val">0 nodes</div>
-                </div>
-                <div class="stat-box">
-                    <div>Model B Table Size</div>
-                    <div id="stat-q-b" class="stat-val">0 nodes</div>
-                </div>
-                <div class="stat-box">
-                    <div>Current Action Step</div>
-                    <div id="stat-steps" class="stat-val">0</div>
-                </div>
-                <div class="stat-box">
-                    <div>Terminal Return Delta</div>
-                    <div id="stat-reward" class="stat-val">0</div>
-                </div>
-            </div>
-            
-            <div class="logs-grid">
-                <div class="log-column">
-                    <div style="font-weight: bold; margin-bottom: 5px; color: var(--blue);">Model A (Blue) Trace Backprop:</div>
-                    <div class="log-box model-a-box" id="ql-log-a"></div>
-                </div>
-                <div class="log-column">
-                    <div style="font-weight: bold; margin-bottom: 5px; color: var(--red);">Model B (Red) Trace Backprop:</div>
-                    <div class="log-box model-b-box" id="ql-log-b"></div>
-                </div>
-            </div>
+            <strong>System Telemetry Output:</strong>
+            <div id="terminal-log"></div>
+
+            <strong>Reinforcement Learning Vector Observation (Q-State Data):</strong>
+            <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">Direct snapshot sequence mapping [Piece Type + Rotation + Team Color] coordinates into an 8x10 array string:</div>
+            <div class="q-state-box" id="q-state-output">Generating State Map...</div>
         </div>
     </div>
 
     <script>
     (() => {
-        'use strict';
-
-        // --- ATOMIC CONFIGURATION CONSTANTS ---
-        const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
-        
-        const ROTATION_TABLE = { 
-            KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' }, 
-            LASER: { 0: '⫝', 1: '⟜', 2: 'Ͳ', 3: 'Ð' }, 
-            SWITCH: { 0: '⟋', 1: '⟍', 2: '⟋', 3: '⟍' }, 
-            DEFENDER: { 0: '⬓', 1: '◧', 2: '⬒', 3: '◨' }, 
-            DEFLECTOR: { 0: '◤', 1: '◥', 2: '◢', 3: '◣' } 
-        };
-
-        const BLUE_RESERVED = [{x: 9, y: 0}, {x: 9, y: 1}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 1, y: 0}, {x: 1, y: 7}];
-        const RED_RESERVED = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 8, y: 0}, {x: 8, y: 7}];
-
-        const INTERACTION_MAP = {
-            DEFLECTOR: {
-                0: { 0: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 2 }, 1: { action: 'destroy' }, 2: { action: 'destroy' } },
-                1: { 0: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 2 }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-                2: { 2: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 3: { action: 'destroy' } },
-                3: { 2: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 1: { action: 'destroy' } }
-            },
-            SWITCH: {
-                0: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
-                1: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } },
-                2: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
-                3: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } }
-            },
-            DEFENDER: {
-                0: { 0: { action: 'block' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-                1: { 1: { action: 'block' }, 0: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-                2: { 2: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 3: { action: 'destroy' } },
-                3: { 3: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' } }
-            },
-            KING: {
-                0: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-                1: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-                2: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-                3: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } }
-            },
-            LASER: {
-                0: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-                1: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-                2: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-                3: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } }
-            }
-        };
-
-        const INITIAL_PIECES = [
-            {id: "pmpfnkxpm1", pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
-            {id: "pmpfnl4j03", pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
-            {id: "pmpfqugdq4", pieceType: "DEFENDER", color: "RED", rotation: 0, x: 4, y: 7},
-            {id: "pmpfquhvx5", pieceType: "DEFENDER", color: "RED", rotation: 2, x: 6, y: 7},
-            {id: "pmpfqunnp6", pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 5, y: 0},
-            {id: "pmpfquoqi7", pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 3, y: 0},
-            {id: "pmpfqvc388", pieceType: "SWITCH", color: "BLUE", rotation: 0, x: 5, y: 3},
-            {id: "pmpfqvfrb9", pieceType: "SWITCH", color: "BLUE", rotation: 1, x: 4, y: 3},
-            {id: "pmpfqvl06a", pieceType: "SWITCH", color: "RED", rotation: 0, x: 4, y: 4},
-            {id: "pmpfqvre4b", pieceType: "SWITCH", color: "RED", rotation: 1, x: 5, y: 4},
-            {id: "pmpfqwdqec", pieceType: "LASER", color: "RED", rotation: 2, x: 0, y: 7},
-            {id: "pmpfqy5dve", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 0},
-            {id: "pmpfqya0pf", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 3},
-            {id: "pmpfqyd1rg", pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 2, y: 4},
-            {id: "pmpfqz0jlj", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 0, y: 3},
-            {id: "pmpfqz7fpk", pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 0, y: 4},
-            {id: "pmpfqzj2ul", pieceType: "DEFLECTOR", color: "BLUE", rotation: 3, x: 7, y: 1},
-            {id: "pmpfr0e5km", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 6, y: 2},
-            {id: "pmpfr0t7zn", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 4},
-            {id: "pmpfr0ww1o", pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 7, y: 3},
-            {id: "pmpfr18esp", pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 9, y: 3},
-            {id: "pmpfr1bjtq", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 9, y: 4},
-            {id: "pmpfr2ek5s", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 3, y: 5},
-            {id: "pmpfr2sl8u", pieceType: "DEFLECTOR", color: "RED", rotation: 1, x: 2, y: 6},
-            {id: "pmpfr337lv", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 7},
-            {id: "pmpfr69imw", pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
-        ];
-
-        // --- DECOUPLED STORAGE OBJECTS ---
-        let Q_TABLE_A = {}; 
-        let Q_TABLE_B = {}; 
-
-        let gameState = {
-            turn: "BLUE",
-            pieces: [],
-            stepCount: 0,
-            laserPath: []
-        };
-
-        const ALPHA = 0.15;   
-        const GAMMA = 0.95;   
-        const EPSILON = 0.15; 
-
-        let matchesCount = 0;
-        let modelAWins = 0;
-        let modelBWins = 0;
-
-        let autoPlayInterval = null;
-        let loopDelay = 0; 
-        let isRunning = true;
-
-        let gameHistoryTrace = [];
-
-        // --- INTERACTIVE Demonstration OVERLAY CHANNELS ---
-        let selectedManualModel = null; // 'A' or 'B' when override triggers
-        let matchRewardMagnitude = 1000; // Scales up to 10000 dynamically
-        let cursorX = 4;
-        let cursorY = 0;
-        let selectedOrigin = null;
-
-        function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
-        function normalizeRotation(rot) { return ((Number(rot) || 0) % 4 + 4) % 4; }
-        function isReservedSquare(x, y, color) { return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); }
-        function getPieceAt(pieces, x, y) { return pieces.find(p => p && p.x === x && p.y === y) || null; }
-        
-        function interactWithLaser(piece, incomingDir) {
-            const typeMap = INTERACTION_MAP[piece.pieceType];
-            if (!typeMap) return { kind: 'stop', destroyed: false };
-            const outcome = typeMap[normalizeRotation(piece.rotation)]?.[incomingDir];
-            if (!outcome) return { kind: 'stop', destroyed: false };
-            if (outcome.action === 'reflect') return { kind: 'reflect', destroyed: false, reflected: outcome.nextDir };
-            if (outcome.action === 'block') return { kind: 'stop', blocked: true, destroyed: false };
-            if (outcome.action === 'destroy') return { kind: 'stop', destroyed: true };
-            return { kind: 'stop', destroyed: false };
-        }
-
-        function resolveLaserVector(x, y, dir, pieces, path = [], seen = new Set()) {
-            if (!inBounds(x, y)) return { path, hit: null, looped: false };
-            const stateKey = `${x},${y},${dir}`;
-            if (seen.has(stateKey)) return { path, hit: null, looped: true };
-            seen.add(stateKey);
-            path.push({ x, y, dir });
-
-            const piece = getPieceAt(pieces, x, y);
-            if (!piece) return resolveLaserVector(x + DIRS[dir].dx, y + DIRS[dir].dy, dir, pieces, path, seen);
-
-            const outcome = interactWithLaser(piece, dir);
-            if (outcome.kind === 'reflect') {
-                const nextDir = outcome.reflected;
-                return resolveLaserVector(x + DIRS[nextDir].dx, y + DIRS[nextDir].dy, nextDir, pieces, path, seen);
-            }
-            return { path, hit: { piece, blocked: !!outcome.blocked, destroyed: !!outcome.destroyed }, looped: false };
-        }
-
-        function getLegalActions(color, pieces) {
-            let actions = [{ type: 'FIRE' }]; 
-
-            for (const p of pieces) {
-                if (p.color !== color) continue;
-
-                if (p.pieceType !== 'LASER') { 
-                    actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: normalizeRotation(p.rotation + 1) });
-                    actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: normalizeRotation(p.rotation - 1) });
-
-                    for (let dx = -1; dx <= 1; dx++) {
-                        for (let dy = -1; dy <= 1; dy++) {
-                            if (dx === 0 && dy === 0) continue;
-                            const nx = p.x + dx;
-                            const ny = p.y + dy;
-                            if (!inBounds(nx, ny) || isReservedSquare(nx, ny, p.color)) continue;
-
-                            const target = getPieceAt(pieces, nx, ny);
-                            if (!target) {
-                                actions.push({ type: 'MOVE', fx: p.x, fy: p.y, tx: nx, ty: ny });
-                            } else if (p.pieceType === 'SWITCH' && (target.pieceType === 'DEFLECTOR' || target.pieceType === 'DEFENDER')) {
-                                if (!isReservedSquare(p.x, p.y, target.color)) {
-                                    actions.push({ type: 'MOVE', fx: p.x, fy: p.y, tx: nx, ty: ny });
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if (p.color === 'BLUE') {
-                        if (normalizeRotation(p.rotation) === 0) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 3 });
-                        if (normalizeRotation(p.rotation) === 3) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 0 });
-                    } else {
-                        if (normalizeRotation(p.rotation) === 1) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 2 });
-                        if (normalizeRotation(p.rotation) === 2) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 1 });
-                    }
-                }
-            }
-            return actions;
-        }
-
-        function generateRLStateKey(pieces, turn) {
-            let layoutStr = "";
-            for (let y = 7; y >= 0; y--) {
-                for (let x = 0; x < 10; x++) {
-                    const p = getPieceAt(pieces, x, y);
-                    if (p) {
-                        layoutStr += `${p.pieceType[0]}${p.color[0]}${p.rotation}`;
-                    } else {
-                        layoutStr += "···";
-                    }
-                    if (x < 9) layoutStr += ",";
-                }
-                if (y > 0) layoutStr += "|";
-            }
-            return `[${layoutStr}][T:${turn === 'BLUE' ? 'A' : 'B'}]`;
-        }
-
-        function stringifyAction(act) {
-            if (act.type === 'FIRE') return "FIRE_LASER_SKIP";
-            if (act.type === 'ROTATE') return `ROT:[${act.x},${act.y}]->${act.rot}`;
-            if (act.type === 'MOVE') return `MOV:[${act.fx},${act.fy}]->[${act.tx},${act.ty}]`;
-            return "NULL";
-        }
-
-        function getQValue(model, state, actionStr) {
-            const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
-            return (table[state] && table[state][actionStr] !== undefined) ? table[state][actionStr] : 0.0;
-        }
-
-        function setQValue(model, state, actionStr, val) {
-            const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
-            if (!table[state]) table[state] = {};
-            table[state][actionStr] = val;
-        }
-
-        // --- BIFURCATED ROUTING BACKPROPAGATION ENGINE ---
-        function backpropagateEntireGameHistory(winningModel, terminalReward) {
-            const totalSteps = gameHistoryTrace.length;
-            const logA = document.getElementById('ql-log-a');
-            const logB = document.getElementById('ql-log-b');
-            
-            const markerA = document.createElement('div');
-            markerA.style.borderLeft = "2px solid var(--blue)";
-            markerA.style.background = "#07111a";
-            markerA.style.padding = "4px";
-            markerA.style.margin = "6px 0";
-            markerA.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '+' + terminalReward : '-' + terminalReward)}`;
-            logA.appendChild(markerA);
-
-            const markerB = document.createElement('div');
-            markerB.style.borderLeft = "2px solid var(--red)";
-            markerB.style.background = "#1a0707";
-            markerB.style.padding = "4px";
-            markerB.style.margin = "6px 0";
-            markerB.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '-' + terminalReward : '+' + terminalReward)}`;
-            logB.appendChild(markerB);
-
-            for (let t = totalSteps - 1; t >= 0; t--) {
-                const record = gameHistoryTrace[t];
-                
-                let outcomeSign = 0;
-                if (winningModel !== 'DRAW') {
-                    outcomeSign = (record.model === winningModel) ? 1 : -1;
-                }
-                
-                const stepTerminalReward = terminalReward * outcomeSign;
-                const distanceToTerminal = (totalSteps - 1) - t;
-                const discountedReturn = Math.pow(GAMMA, distanceToTerminal) * stepTerminalReward;
-
-                const oldQ = getQValue(record.model, record.state, record.action);
-                const newQ = oldQ + ALPHA * (discountedReturn - oldQ);
-                setQValue(record.model, record.state, record.action, newQ);
-
-                const traceRow = document.createElement('div');
-                traceRow.style.fontSize = "10px";
-                traceRow.style.paddingLeft = "5px";
-                traceRow.innerHTML = `• Step [${t}] -> Return: ${discountedReturn.toFixed(1)} | Q: ${newQ.toFixed(4)}<br><span style="color:#666;">Act: ${record.action}</span>`;
-
-                if (record.model === 'A') {
-                    logA.appendChild(traceRow);
-                } else {
-                    logB.appendChild(traceRow);
-                }
-            }
-            
-            logA.scrollTop = logA.scrollHeight;
-            logB.scrollTop = logB.scrollHeight;
-        }
-
-        // --- SIMULATION TICK / OVERRIDE COMPILER ---
-        function stepSimulation() {
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            
-            // If the current team turn is marked for manual interface control, pause simulation loop execution
-            if (selectedManualModel === currentModel) {
-                return; 
-            }
-
-            const currentStateKey = generateRLStateKey(gameState.pieces, gameState.turn);
-            const legalActs = getLegalActions(gameState.turn, gameState.pieces);
-            
-            if (legalActs.length === 0) {
-                concludeMatch('DRAW', 0);
-                return;
-            }
-
-            let selectedAction = null;
-            if (Math.random() < EPSILON) {
-                selectedAction = legalActs[Math.floor(Math.random() * legalActs.length)];
-            } else {
-                let bestQ = -Infinity;
-                let candidates = [];
-                for (const act of legalActs) {
-                    const actStr = stringifyAction(act);
-                    const q = getQValue(currentModel, currentStateKey, actStr);
-                    if (q > bestQ) {
-                        bestQ = q;
-                        candidates = [act];
-                    } else if (q === bestQ) {
-                        candidates.push(act);
-                    }
-                }
-                selectedAction = candidates[Math.floor(Math.random() * candidates.length)];
-            }
-
-            executeTargetAction(selectedAction, currentModel, currentStateKey);
-        }
-
-        function executeTargetAction(actionObj, modelTag, stateKey) {
-            const actionStr = stringifyAction(actionObj);
-
-            gameHistoryTrace.push({
-                model: modelTag,
-                state: stateKey,
-                action: actionStr
-            });
-
-            if (actionObj.type === 'MOVE') {
-                const targetPiece = getPieceAt(gameState.pieces, actionObj.tx, actionObj.ty);
-                const movingPiece = getPieceAt(gameState.pieces, actionObj.fx, actionObj.fy);
-                if (targetPiece && movingPiece && movingPiece.pieceType === 'SWITCH') {
-                    targetPiece.x = actionObj.fx;
-                    targetPiece.y = actionObj.fy;
-                }
-                if (movingPiece) {
-                    movingPiece.x = actionObj.tx;
-                    movingPiece.y = actionObj.ty;
-                }
-            } else if (actionObj.type === 'ROTATE') {
-                const p = getPieceAt(gameState.pieces, actionObj.x, actionObj.y);
-                if (p) p.rotation = actionObj.rot;
-            }
-
-            const activeShooterColor = gameState.turn;
-            const shooter = gameState.pieces.find(p => p && p.pieceType === 'LASER' && p.color === activeShooterColor);
-            
-            let terminalStatus = null;
-            gameState.laserPath = [];
-
-            if (shooter) {
-                const startDir = normalizeRotation(shooter.rotation);
-                const trace = resolveLaserVector(shooter.x + DIRS[startDir].dx, shooter.y + DIRS[startDir].dy, startDir, gameState.pieces);
-                gameState.laserPath = trace.path;
-
-                if (trace.hit && trace.hit.destroyed) {
-                    const victim = trace.hit.piece;
-                    gameState.pieces = gameState.pieces.filter(p => !(p.x === victim.x && p.y === victim.y));
-                    if (victim.pieceType === 'KING') {
-                        terminalStatus = (victim.color === 'RED') ? 'WIN_A' : 'WIN_B';
-                    }
-                }
-            }
-
-            gameState.stepCount++;
-            
-            if (!terminalStatus && gameState.stepCount >= 200) {
-                terminalStatus = 'DRAW';
-            }
-
-            if (terminalStatus) {
-                if (terminalStatus === 'WIN_A') concludeMatch('A', matchRewardMagnitude);
-                else if (terminalStatus === 'WIN_B') concludeMatch('B', matchRewardMagnitude);
-                else concludeMatch('DRAW', 0);
-            } else {
-                gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
-            }
-
-            renderView();
-        }
-
-        function concludeMatch(winner, rewardValue) {
-            matchesCount++;
-            if (winner === 'A') {
-                modelAWins++;
-                document.getElementById('stat-reward').textContent = "+" + rewardValue;
-                document.getElementById('stat-reward').style.color = "var(--blue)";
-            } else if (winner === 'B') {
-                modelBWins++;
-                document.getElementById('stat-reward').textContent = "-" + rewardValue;
-                document.getElementById('stat-reward').style.color = "var(--red)";
-            } else {
-                document.getElementById('stat-reward').textContent = "0";
-                document.getElementById('stat-reward').style.color = "var(--text)";
-            }
-
-            backpropagateEntireGameHistory(winner, rewardValue);
-            
-            // Clear manual override state mechanics upon terminal frame completion
-            selectedManualModel = null;
-            matchRewardMagnitude = 1000;
-            selectedOrigin = null;
-            
-            resetEnvironment();
-        }
-
-        function resetEnvironment() {
-            gameState.pieces = JSON.parse(JSON.stringify(INITIAL_PIECES));
-            gameState.turn = "BLUE";
-            gameState.stepCount = 0;
-            gameState.laserPath = [];
-            gameHistoryTrace = []; 
-        }
-
-        // --- INTERACTIVE GRID ACTION TRANSLATORS ---
-        function handleManualGridCommit() {
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            if (selectedManualModel !== currentModel) return;
-
-            const pieces = gameState.pieces;
-            const stateKey = generateRLStateKey(pieces, gameState.turn);
-            const legalActs = getLegalActions(gameState.turn, pieces);
-
-            if (!selectedOrigin) {
-                const p = getPieceAt(pieces, cursorX, cursorY);
-                if (p && p.color === gameState.turn) {
-                    selectedOrigin = { x: cursorX, y: cursorY };
-                }
-            } else {
-                if (selectedOrigin.x === cursorX && selectedOrigin.y === cursorY) {
-                    selectedOrigin = null;
-                } else {
-                    // Attempt structural match on MOVE actions
-                    const matchedMove = legalActs.find(a => a.type === 'MOVE' && a.fx === selectedOrigin.x && a.fy === selectedOrigin.y && a.tx === cursorX && a.ty === cursorY);
-                    if (matchedMove) {
-                        selectedOrigin = null;
-                        executeTargetAction(matchedMove, currentModel, stateKey);
-                    }
-                }
-            }
-            renderView();
-        }
-
-        function rotateManualPiece(directionSign) {
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            if (selectedManualModel !== currentModel || !selectedOrigin) return;
-
-            const pieces = gameState.pieces;
-            const stateKey = generateRLStateKey(pieces, gameState.turn);
-            const legalActs = getLegalActions(gameState.turn, pieces);
-
-            const targetPiece = getPieceAt(pieces, selectedOrigin.x, selectedOrigin.y);
-            if (targetPiece) {
-                const targetRot = normalizeRotation(targetPiece.rotation + directionSign);
-                const matchedRotate = legalActs.find(a => a.type === 'ROTATE' && a.x === selectedOrigin.x && a.y === selectedOrigin.y && a.rot === targetRot);
-                if (matchedRotate) {
-                    selectedOrigin = null;
-                    executeTargetAction(matchedRotate, currentModel, stateKey);
-                }
-            }
-            renderView();
-        }
-
-        function skipAndFireManual() {
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            if (selectedManualModel !== currentModel) return;
-
-            const stateKey = generateRLStateKey(gameState.pieces, gameState.turn);
-            selectedOrigin = null;
-            executeTargetAction({ type: 'FIRE' }, currentModel, stateKey);
-            renderView();
-        }
-
-        // --- DYNAMIC RENDERING INTERFACE MODULE ---
-        const gridEl = document.getElementById('viewport-grid');
-
-        function renderView() {
-            gridEl.innerHTML = "";
-            const gridMatrix = Array.from({ length: 8 }, () => Array(10).fill(null));
-            for (const p of gameState.pieces) {
-                if (p && inBounds(p.x, p.y)) gridMatrix[p.y][p.x] = p;
-            }
-
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            const isManualTurn = (selectedManualModel === currentModel);
-
-            for (let y = 7; y >= 0; y--) {
-                for (let x = 0; x < 10; x++) {
-                    const cell = document.createElement('div');
-                    cell.className = "cell";
-                    
-                    if (BLUE_RESERVED.some(s => s.x === s.x && s.y === y)) cell.classList.add('reserved-blue');
-                    if (RED_RESERVED.some(s => s.x === x && s.y === y)) cell.classList.add('reserved-red');
-
-                    // Apply visual interaction selectors if manual mode context active
-                    if (isManualTurn) {
-                        if (x === cursorX && y === cursorY) cell.classList.add('cursor');
-                        if (selectedOrigin && x === selectedOrigin.x && y === selectedOrigin.y) cell.classList.add('selected-piece');
-                    }
-
-                    const p = gridMatrix[y][x];
-                    const pathSegment = gameState.laserPath.find(seg => seg.x === x && seg.y === y);
-
-                    if (p) {
-                        cell.className += ` ${p.color === 'BLUE' ? 'p-blue' : 'p-red'}`;
-                        cell.textContent = ROTATION_TABLE[p.pieceType][normalizeRotation(p.rotation)];
-                    } else if (pathSegment) {
-                        cell.classList.add('laser-path');
-                        const arrowSymbols = ['^', '>', 'v', '<'];
-                        cell.textContent = arrowSymbols[pathSegment.dir];
-                    } else {
-                        cell.style.color = "#1f1f1f";
-                        cell.textContent = "·";
-                    }
-
-                    // Click bindings mapping to layout updates
-                    cell.addEventListener('click', () => {
-                        if (isManualTurn) {
-                            cursorX = x;
-                            cursorY = y;
-                            handleManualGridCommit();
-                        }
-                    });
-
-                    gridEl.appendChild(cell);
-                }
-            }
-
-            document.getElementById('stat-matches').textContent = matchesCount;
-            document.getElementById('stat-turn').innerHTML = gameState.turn === 'BLUE' ? '<span class="p-blue">BLUE (Model A)</span>' : '<span class="p-red">RED (Model B)</span>';
-            document.getElementById('stat-wins-a').textContent = modelAWins;
-            document.getElementById('stat-wins-b').textContent = modelBWins;
-            document.getElementById('stat-q-a').textContent = `${Object.keys(Q_TABLE_A).length} mappings`;
-            document.getElementById('stat-q-b').textContent = `${Object.keys(Q_TABLE_B).length} mappings`;
-            document.getElementById('stat-steps').textContent = gameState.stepCount;
-
-            const modeLabel = document.getElementById('stat-execution-mode');
-            if (selectedManualModel) {
-                modeLabel.textContent = `MANUAL OVERRIDE: INTERACTIVE MODEL ${selectedManualModel} GAMEPLAY (STAKES: ±10000)`;
-                modeLabel.className = "stat-val p-purple";
-            } else {
-                modeLabel.textContent = "AUTOMATED AGENT TRAINING CYCLES RUNNING";
-                modeLabel.className = "stat-val";
-                modeLabel.style.color = "var(--green)";
-            }
-        }
-
-        // --- KEYBOARD LISTENER BINDINGS ---
-        window.addEventListener('keydown', (e) => {
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            if (selectedManualModel !== currentModel) return;
-
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key) || 
-                ['r', 'l', 'f'].includes(e.key.toLowerCase())) {
-                e.preventDefault();
-            } else {
-                return;
-            }
-
-            if (e.key === 'ArrowUp' && cursorY < 7) cursorY++;
-            else if (e.key === 'ArrowDown' && cursorY > 0) cursorY--;
-            else if (e.key === 'ArrowLeft' && cursorX > 0) cursorX--;
-            else if (e.key === 'ArrowRight' && cursorX < 9) cursorX++;
-            else if (e.key === 'Enter') handleManualGridCommit();
-            else if (e.key.toLowerCase() === 'r') rotateManualPiece(1);
-            else if (e.key.toLowerCase() === 'l') rotateManualPiece(-1);
-            else if (e.key.toLowerCase() === 'f') skipAndFireManual();
-
-            renderView();
-        });
-
-        // --- BUTTON TRIGGER COMPILERS ---
-        const btnToggle = document.getElementById('btn-toggle');
-        const btnSpeed = document.getElementById('btn-speed');
-        const btnDownloadA = document.getElementById('btn-download-a');
-        const btnDownloadB = document.getElementById('btn-download-b');
-        const btnStakes = document.getElementById('btn-stakes');
-        const selectModel = document.getElementById('select-model');
-        const btnReset = document.getElementById('btn-reset');
-
-        btnToggle.addEventListener('click', () => {
-            isRunning = !isRunning;
-            if (isRunning) {
-                btnToggle.textContent = "PAUSE TRAINING";
-                btnToggle.classList.add('active');
-                runLoop();
-            } else {
-                btnToggle.textContent = "RESUME TRAINING";
-                btnToggle.classList.remove('active');
-                clearTimeout(autoPlayInterval);
-            }
-        });
-
-        btnSpeed.addEventListener('click', () => {
-            if (loopDelay === 0) {
-                loopDelay = 50;
-                btnSpeed.textContent = "SPEED: BALANCED MODE (50ms)";
-            } else if (loopDelay === 50) {
-                loopDelay = 400;
-                btnSpeed.textContent = "SPEED: OBSERVATION MODE (400ms)";
-            } else {
-                loopDelay = 0;
-                btnSpeed.textContent = "SPEED: TURBO OVERDRIVE (0ms)";
-            }
-        });
-
-        btnReset.addEventListener('click', () => {
-            if (confirm("Clear isolated Q-Tables and trace structures?")) {
-                Q_TABLE_A = {}; Q_TABLE_B = {};
-                matchesCount = 0; modelAWins = 0; modelBWins = 0;
-                selectedManualModel = null; matchRewardMagnitude = 1000;
-                document.getElementById('ql-log-a').innerHTML = "";
-                document.getElementById('ql-log-b').innerHTML = "";
-                resetEnvironment(); renderView();
-            }
-        });
-
-        // STAKES STIMULUS OVERRIDE CONTROLLER
-        btnStakes.addEventListener('click', () => {
-            const chosenTarget = selectModel.value;
-            selectedManualModel = chosenTarget;
-            matchRewardMagnitude = 10000; 
-            
-            // Set keyboard tracking cursor coordinates directly onto their starting position
-            if (chosenTarget === 'A') { cursorX = 4; cursorY = 0; }
-            else { cursorX = 5; cursorY = 7; }
-            
-            selectedOrigin = null;
-            renderView();
-            alert(`High-Stakes Mode engaged. Automated processing will pause on Model ${chosenTarget}'s turn. Use the visual viewport elements or arrow keys to make your move.`);
-        });
-
-        // DISTINCT EXPORTER CONTROLLERS
-        btnDownloadA.addEventListener('click', () => {
-            const dataPayload = {
-                targetPolicyModel: "MODEL_A_BLUE",
-                timestamp: Date.now(),
-                metrics: { matchesPlayed: matchesCount, modelWins: modelAWins },
-                graphStates: Q_TABLE_A
-            };
-            exportJSONFile(dataPayload, 'laser_chess_policy_model_A_blue.json');
-        });
-
-        btnDownloadB.addEventListener('click', () => {
-            const dataPayload = {
-                targetPolicyModel: "MODEL_B_RED",
-                timestamp: Date.now(),
-                metrics: { matchesPlayed: matchesCount, modelWins: modelBWins },
-                graphStates: Q_TABLE_B
-            };
-            exportJSONFile(dataPayload, 'laser_chess_policy_model_B_red.json');
-        });
-
-        function exportJSONFile(payload, filename) {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
-            const dlAnchor = document.createElement('a');
-            dlAnchor.setAttribute("href", dataStr);
-            dlAnchor.setAttribute("download", filename);
-            dlAnchor.click();
-            dlAnchor.remove();
-        }
-
-        function runLoop() {
-            if (!isRunning) return;
-            
-            const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-            
-            // Interrupt self-play loop cycle if human control requested
-            if (selectedManualModel === currentModel) {
-                autoPlayInterval = setTimeout(runLoop, 100);
-                return;
-            }
-
-            stepSimulation();
-            if (loopDelay === 0) {
-                while (isRunning && loopDelay === 0 && gameHistoryTrace.length > 0 && selectedManualModel !== ((gameState.turn === 'BLUE') ? 'A' : 'B')) {
-                    stepSimulation();
-                }
-                autoPlayInterval = setTimeout(runLoop, 1);
-            } else {
-                autoPlayInterval = setTimeout(runLoop, loopDelay);
-            }
-        }
-
-        // --- INITIALIZE BOOT SEQUENCE ---
-        resetEnvironment();
-        renderView();
-        runLoop();
+      'use strict';
+
+      const logContainer = document.getElementById('terminal-log');
+      const qStateOutput = document.getElementById('q-state-output');
+      const boardWrapper = document.getElementById('game-board-wrapper');
+
+      let cursorX = 4, cursorY = 3;
+      let latestState = null;
+      let selectedOrigin = null;
+      let isAnimatingLocalTurn = false;
+
+      const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
+      
+      const ROTATION_TABLE = { 
+        KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' }, 
+        LASER: { 0: '⫝', 1: '⟜', 2: 'Ͳ', 3: 'Ð' }, 
+        SWITCH: { 0: '⟋', 1: '⟍', 2: '⟋', 3: '⟍' }, 
+        DEFENDER: { 0: '⬓', 1: '◧', 2: '⬒', 3: '◨' }, 
+        DEFLECTOR: { 0: '◤', 1: '◥', 2: '◢', 3: '◣' } 
+      };
+
+      const BLUE_RESERVED = [{x: 9, y: 0}, {x: 9, y: 1}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 1, y: 0}, {x: 1, y: 7}];
+      const RED_RESERVED = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 8, y: 0}, {x: 8, y: 7}];
+
+      const INTERACTION_MAP = {
+          DEFLECTOR: {
+              0: { 0: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 2 }, 1: { action: 'destroy' }, 2: { action: 'destroy' } },
+              1: { 0: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 2 }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+              2: { 2: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 3: { action: 'destroy' } },
+              3: { 2: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 1: { action: 'destroy' } }
+          },
+          SWITCH: {
+              0: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
+              1: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } },
+              2: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
+              3: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } }
+          },
+          DEFENDER: {
+              0: { 0: { action: 'block' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+              1: { 1: { action: 'block' }, 0: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+              2: { 2: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 3: { action: 'destroy' } },
+              3: { 3: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' } }
+          },
+          KING: {
+              0: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+              1: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+              2: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
+              3: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } }
+          },
+          LASER: {
+              0: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
+              1: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
+              2: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
+              3: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } }
+          }
+      };
+
+      function addLog(text, cls='') {
+          const d = document.createElement('div');
+          d.className = `history-line ${cls}`;
+          d.textContent = text;
+          logContainer.appendChild(d);
+          logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      function getPieceChar(piece) { 
+          const rot = piece.rotation || 0;
+          return ROTATION_TABLE[piece.pieceType] ? ROTATION_TABLE[piece.pieceType][rot] : '?'; 
+      }
+
+      function getReservedClass(x, y) {
+          if (BLUE_RESERVED.some(s => s.x === x && s.y === y)) return 'reserved-blue';
+          if (RED_RESERVED.some(s => s.x === x && s.y === y)) return 'reserved-red';
+          return null;
+      }
+
+      function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
+      function normalizeRotation(rot) { return ((Number(rot) || 0) % 4 + 4) % 4; }
+      function isReservedSquare(x, y, color) { 
+          return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); 
+      }
+      function getPieceAt(pieces, x, y) { return pieces.find(p => p && p.x === x && p.y === y) || null; }
+      
+      function interactWithLaser(piece, incomingDir) {
+          const typeMap = INTERACTION_MAP[piece.pieceType];
+          if (!typeMap) return { kind: 'stop', destroyed: false };
+          const outcome = typeMap[normalizeRotation(piece.rotation)]?.[incomingDir];
+          if (!outcome) return { kind: 'stop', destroyed: false };
+          if (outcome.action === 'reflect') return { kind: 'reflect', destroyed: false, reflected: outcome.nextDir };
+          if (outcome.action === 'block') return { kind: 'stop', blocked: true, destroyed: false };
+          if (outcome.action === 'destroy') return { kind: 'stop', destroyed: true };
+          return { kind: 'stop', destroyed: false };
+      }
+
+      function resolveLaserVector(x, y, dir, pieces, path = [], seen = new Set()) {
+          if (!inBounds(x, y)) return { path, hit: null, looped: false };
+          const stateKey = `${x},${y},${dir}`;
+          if (seen.has(stateKey)) return { path, hit: null, looped: true };
+          seen.add(stateKey);
+          path.push({ x, y, dir });
+
+          const piece = getPieceAt(pieces, x, y);
+          if (!piece) return resolveLaserVector(x + DIRS[dir].dx, y + DIRS[dir].dy, dir, pieces, path, seen);
+
+          const outcome = interactWithLaser(piece, dir);
+          if (outcome.kind === 'reflect') {
+              const nextDir = outcome.reflected;
+              return resolveLaserVector(x + DIRS[nextDir].dx, y + DIRS[nextDir].dy, nextDir, pieces, path, seen);
+          }
+          return { path, hit: { piece, blocked: !!outcome.blocked, destroyed: !!outcome.destroyed }, looped: false };
+      }
+
+      function generateAndRenderQState(state) {
+          const pieces = state.board.pieces;
+          let asciiMatrixOutput = "";
+          let stateVector = [];
+
+          for (let y = 7; y >= 0; y--) {
+              let rowString = `Row ${y} [`;
+              for (let x = 0; x < 10; x++) {
+                  const p = getPieceAt(pieces, x, y);
+                  if (p) {
+                      const code = `${p.color[0]}_${p.pieceType.substring(0,2)}${p.rotation}`;
+                      rowString += ` ${code.padEnd(5)} `;
+                      stateVector.push(code);
+                  } else {
+                      rowString += "  .   ";
+                      stateVector.push("EMPTY");
+                  }
+              }
+              rowString += "]\n";
+              asciiMatrixOutput += rowString;
+          }
+          
+          qStateOutput.textContent = `--- MATRIX OBSERVATION SNAPSHOT ---\n${asciiMatrixOutput}\n--- FLATTENED ARRAY STRING BUFFER ---\n${JSON.stringify(stateVector)}`;
+      }
+
+      function initLocalGame() {
+          const defaultPieces = [
+              {id: "b_king", pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
+              {id: "r_king", pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
+              {id: "r_def1", pieceType: "DEFENDER", color: "RED", rotation: 0, x: 4, y: 7},
+              {id: "r_def2", pieceType: "DEFENDER", color: "RED", rotation: 2, x: 6, y: 7},
+              {id: "b_def1", pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 5, y: 0},
+              {id: "b_def2", pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 3, y: 0},
+              {id: "b_sw1", pieceType: "SWITCH", color: "BLUE", rotation: 0, x: 5, y: 3},
+              {id: "b_sw2", pieceType: "SWITCH", color: "BLUE", rotation: 1, x: 4, y: 3},
+              {id: "r_sw1", pieceType: "SWITCH", color: "RED", rotation: 0, x: 4, y: 4},
+              {id: "r_sw2", pieceType: "SWITCH", color: "RED", rotation: 1, x: 5, y: 4},
+              {id: "r_laser", pieceType: "LASER", color: "RED", rotation: 2, x: 0, y: 7},
+              {id: "b_defl1", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 0},
+              {id: "b_defl2", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 3},
+              {id: "b_defl3", pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 2, y: 4},
+              {id: "r_defl1", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 0, y: 3},
+              {id: "r_defl2", pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 0, y: 4},
+              {id: "b_defl4", pieceType: "DEFLECTOR", color: "BLUE", rotation: 3, x: 7, y: 1},
+              {id: "r_defl3", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 6, y: 2},
+              {id: "r_defl4", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 4},
+              {id: "r_defl5", pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 7, y: 3},
+              {id: "b_defl5", pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 9, y: 3},
+              {id: "b_defl6", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 9, y: 4},
+              {id: "b_defl7", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 3, y: 5},
+              {id: "r_defl6", pieceType: "DEFLECTOR", color: "RED", rotation: 1, x: 2, y: 6},
+              {id: "r_defl7", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 7},
+              {id: "b_laser", pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
+          ];
+
+          latestState = {
+              board: {
+                  turn: "BLUE",
+                  moveNumber: 1,
+                  pieces: defaultPieces
+              },
+              status: "ACTIVE"
+          };
+
+          selectedOrigin = null;
+          isAnimatingLocalTurn = false;
+          addLog("Environment Initialized. Turn: BLUE.", "system-msg");
+          printTerminalMatrix(latestState);
+      }
+
+      window.resetLocalGame = function() {
+          initLocalGame();
+      };
+
+      function printTerminalMatrix(state, laserPath = []) {
+          const pieces = state.board.pieces;
+          const grid = Array.from({ length: 8 }, () => Array(10).fill(null));
+          for (const piece of pieces) { 
+              if (piece && Number.isFinite(piece.x)) grid[piece.y][piece.x] = piece; 
+          }
+          
+          const container = document.createElement('div'); 
+          container.className = 'matrix-container';
+
+          const currentTurn = state.board.turn;
+          const statusBar = document.createElement('div');
+          statusBar.className = 'history-line';
+          statusBar.style.marginBottom = '10px';
+          statusBar.innerHTML = `[MOVE #${state.board.moveNumber}] Active Agent Strategy Turn: <span class="p-${currentTurn.toLowerCase()}">${currentTurn}</span>`;
+          container.appendChild(statusBar);
+
+          for (let y = 7; y >= 0; y--) {
+              let rowEl = document.createElement('div'); 
+              rowEl.className = 'matrix-row';
+              for (let x = 0; x < 10; x++) {
+                  let cellEl = document.createElement('span'); 
+                  cellEl.className = 'matrix-cell';
+                  
+                  const resClass = getReservedClass(x, y);
+                  if (resClass) cellEl.classList.add(resClass);
+                  if (x === cursorX && y === cursorY) cellEl.classList.add('cursor');
+                  if (selectedOrigin && x === selectedOrigin.x && y === selectedOrigin.y) cellEl.classList.add('selected-piece');
+
+                  cellEl.addEventListener('click', (e) => { 
+                      if (isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+                      cursorX = x; cursorY = y; 
+                      handleGridAction(); 
+                  });
+
+                  const p = grid[y][x]; 
+                  if (p) { 
+                      cellEl.textContent = getPieceChar(p); 
+                      cellEl.classList.add(p.color === 'RED' ? 'p-red' : 'p-blue'); 
+                  } else {
+                      const pathSegment = laserPath.find(seg => seg.x === x && seg.y === y);
+                      if (pathSegment) {
+                          const syms = ['^', '>', 'v', '<'];
+                          cellEl.textContent = syms[pathSegment.dir];
+                          cellEl.style.color = 'var(--laser)';
+                      } else {
+                          cellEl.textContent = '·'; 
+                      }
+                  }
+                  rowEl.appendChild(cellEl);
+              }
+              container.appendChild(rowEl);
+          }
+          
+          if (state.status && state.status.endsWith('_WIN')) {
+              const winner = state.status.split('_')[0];
+              const div = document.createElement('div');
+              div.className = 'success-msg';
+              div.style.marginTop = '10px';
+              div.textContent = `TERMINAL MATCH OVER: ${winner} WINS!`;
+              container.appendChild(div);
+          }
+          
+          boardWrapper.innerHTML = '';
+          boardWrapper.appendChild(container);
+          generateAndRenderQState(state);
+      }
+
+      async function processGameAction(intent) {
+          if (!latestState || latestState.status !== "ACTIVE") return;
+          
+          const currentTurn = latestState.board.turn;
+          
+          // Action Layer Evaluation
+          try {
+              if (intent.action !== 'Turn End' && intent.piece) {
+                  const piecesDryRun = latestState.board.pieces;
+                  const dbPiece = getPieceAt(piecesDryRun, intent.piece.x, intent.piece.y);
+                  
+                  if (!dbPiece) throw new Error("Validation Exception: Empty cell vector selection.");
+                  if (dbPiece.color !== currentTurn) throw new Error(`Turn violation: Active state is restricted to ${currentTurn}.`);
+                  
+                  if (intent.action === 'Move') {
+                      const nx = intent.changes.new.x; 
+                      const ny = intent.changes.new.y; 
+                      const dx = Math.abs(nx - dbPiece.x); 
+                      const dy = Math.abs(ny - dbPiece.y);
+                      
+                      if (dx > 1 || dy > 1 || (dx === 0 && dy === 0)) throw new Error("Invalid kinematics: Out-of-bounds offset step.");
+                      if (dbPiece.pieceType === 'LASER') throw new Error("Kinematics Lock: Structural columns are immutable.");
+                      if (isReservedSquare(nx, ny, dbPiece.color)) throw new Error("Landing Zone Protected: Target row belongs to opponent.");
+                      
+                      const pieceAtTarget = getPieceAt(piecesDryRun, nx, ny);
+                      if (pieceAtTarget) {
+                          if (dbPiece.pieceType === 'SWITCH' && (pieceAtTarget.pieceType === 'DEFLECTOR' || pieceAtTarget.pieceType === 'DEFENDER')) {
+                              if (isReservedSquare(dbPiece.x, dbPiece.y, pieceAtTarget.color)) throw new Error("Kinematic Lock: Trapped switch swap rule breach.");
+                          } else { 
+                              throw new Error("Overlap Blocked: Spatial configuration conflict."); 
+                          }
+                      }
+                  } else if (intent.action === 'Rotate') {
+                      const newRot = intent.changes.new.rotation;
+                      if (dbPiece.pieceType === 'KING') throw new Error("Rotation Lock: Core unit system fixed.");
+                      if (dbPiece.pieceType === 'LASER') {
+                          if (dbPiece.color === 'BLUE' && (newRot === 1 || newRot === 2)) throw new Error("Orientation Exception: Blue firing arc restricted to 0 or 3.");
+                          if (dbPiece.color === 'RED' && (newRot === 3 || newRot === 0)) throw new Error("Orientation Exception: Red firing arc restricted to 1 or 2.");
+                      }
+                  }
+              }
+          } catch (localErr) { 
+              addLog(localErr.message, 'error-msg'); 
+              selectedOrigin = null; 
+              printTerminalMatrix(latestState); 
+              return; 
+          }
+          
+          isAnimatingLocalTurn = true; 
+          let pieces = latestState.board.pieces;
+          
+          // Action State Mutations
+          if (intent.action !== 'Turn End' && intent.piece) {
+              const dbPiece = getPieceAt(pieces, intent.piece.x, intent.piece.y);
+              if (intent.action === 'Move') {
+                  const nx = intent.changes.new.x; 
+                  const ny = intent.changes.new.y; 
+                  const pieceAtTarget = getPieceAt(pieces, nx, ny);
+                  if (pieceAtTarget && dbPiece.pieceType === 'SWITCH') { 
+                      pieceAtTarget.x = dbPiece.x; 
+                      pieceAtTarget.y = dbPiece.y; 
+                  }
+                  dbPiece.x = nx; dbPiece.y = ny; 
+                  addLog(`Action: Moved piece to (${nx},${ny})`, 'success-msg');
+              } else if (intent.action === 'Rotate') {
+                  dbPiece.rotation = intent.changes.new.rotation; 
+                  addLog(`Action: Rotated piece to orientation ${dbPiece.rotation}`, 'success-msg');
+              }
+              printTerminalMatrix(latestState);
+              await new Promise(r => setTimeout(r, 200));
+          } else {
+              addLog("Action: Step action passed; triggering direct discharge vector.", 'system-msg');
+          }
+
+          // Automated Laser Trace Evaluation Step
+          const shooter = pieces.find(p => p && p.pieceType === 'LASER' && p.color === currentTurn);
+          if (shooter) {
+              const startDir = normalizeRotation(shooter.rotation);
+              const trace = resolveLaserVector(shooter.x + DIRS[startDir].dx, shooter.y + DIRS[startDir].dy, startDir, pieces);
+              
+              printTerminalMatrix(latestState, trace.path);
+              await new Promise(r => setTimeout(r, 600));
+
+              if (trace.hit && trace.hit.destroyed) {
+                  const victim = trace.hit.piece;
+                  pieces = pieces.filter(p => !(p.x === victim.x && p.y === victim.y));
+                  latestState.board.pieces = pieces;
+                  addLog(`Discharge impact vaporized ${victim.color} ${victim.pieceType} at (${victim.x}, ${victim.y}).`, "error-msg");
+                  
+                  if (victim.pieceType === 'KING') { 
+                      const winnerColor = victim.color === 'RED' ? 'BLUE' : 'RED';
+                      latestState.status = `${winnerColor}_WIN`; 
+                      addLog(`CRITICAL: ${victim.color} KING TERMINATED. ${winnerColor} WINS MATCH.`, "success-msg"); 
+                  }
+              }
+          }
+          
+          if (latestState.status === "ACTIVE") {
+              latestState.board.turn = currentTurn === 'RED' ? 'BLUE' : 'RED';
+              latestState.board.moveNumber++;
+          }
+          
+          selectedOrigin = null;
+          isAnimatingLocalTurn = false; 
+          printTerminalMatrix(latestState);
+      }
+
+      window.skipTurnAndFire = async function() { 
+          if (isAnimatingLocalTurn) return;
+          await processGameAction({ action: 'Turn End' }); 
+      };
+
+      window.rotatePiece = async function(dir) {
+          if (!selectedOrigin || isAnimatingLocalTurn) return;
+          const pieces = latestState.board.pieces; 
+          const p = pieces.find(p => p.x === selectedOrigin.x && p.y === selectedOrigin.y);
+          if (p) { 
+              const nextRotation = ((p.rotation || 0) + dir + 4) % 4; 
+              await processGameAction({ 
+                  action: 'Rotate', 
+                  piece: { x: selectedOrigin.x, y: selectedOrigin.y, type: p.pieceType }, 
+                  changes: { new: { rotation: nextRotation } } 
+              }); 
+          }
+      };
+
+      async function handleGridAction() {
+          if (isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+          const pieces = latestState.board.pieces;
+
+          if (!selectedOrigin) {
+              const p = pieces.find(p => p.x === cursorX && p.y === cursorY);
+              if (p) { 
+                  if (p.color !== latestState.board.turn) {
+                      addLog(`Select Violation: Chosen target cell belongs to opponent engine.`, 'error-msg');
+                      return;
+                  }
+                  selectedOrigin = { x: cursorX, y: cursorY }; 
+              }
+              printTerminalMatrix(latestState);
+          } else {
+              const movingPiece = pieces.find(p => p.x === selectedOrigin.x && p.y === selectedOrigin.y);
+              if (selectedOrigin.x === cursorX && selectedOrigin.y === cursorY) { 
+                  selectedOrigin = null; 
+                  printTerminalMatrix(latestState); 
+              } else { 
+                  await processGameAction({ 
+                      action: 'Move', 
+                      piece: { x: selectedOrigin.x, y: selectedOrigin.y, type: movingPiece ? movingPiece.pieceType : null }, 
+                      changes: { new: { x: cursorX, y: cursorY } } 
+                  }); 
+              }
+          }
+      }
+
+      // Hardware Input Event Handlers
+      window.addEventListener('keydown', (e) => {
+          if (isAnimatingLocalTurn || latestState.status !== "ACTIVE") return;
+          
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(e.key) || 
+              ['r', 'l', 'f'].includes(e.key.toLowerCase())) {
+              e.preventDefault();
+          } else {
+              return;
+          }
+
+          if (e.key === 'ArrowUp' && cursorY < 7) cursorY++;
+          else if (e.key === 'ArrowDown' && cursorY > 0) cursorY--;
+          else if (e.key === 'ArrowLeft' && cursorX > 0) cursorX--;
+          else if (e.key === 'ArrowRight' && cursorX < 9) cursorX++;
+          else if (e.key === 'Enter' || e.key === ' ') handleGridAction();
+          else if (e.key.toLowerCase() === 'r') rotatePiece(1);
+          else if (e.key.toLowerCase() === 'l') rotatePiece(-1);
+          else if (e.key.toLowerCase() === 'f') skipTurnAndFire();
+          
+          printTerminalMatrix(latestState);
+      });
+
+      window.addEventListener('DOMContentLoaded', initLocalGame);
     })();
     </script>
 </body>

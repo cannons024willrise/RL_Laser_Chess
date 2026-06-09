@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laser Chess RL Terminal - Absolute High-Performance Engine</title>
+    <title>Laser Chess High-Performance RL Engine - Isolated Traces & Policies</title>
     <style>
         :root {
             --bg0: #0a0a0a;
@@ -15,7 +15,9 @@
             --red: #ff3333;
             --yellow: #ffff00;
             --green: #00ff66;
-            --cell-size: 40px;
+            --cell-size: 42px;
+            --blue-tint: rgba(0, 212, 255, 0.12);
+            --red-tint: rgba(255, 51, 51, 0.12);
         }
 
         body {
@@ -24,7 +26,7 @@
             background-color: var(--bg0);
             color: var(--text);
             font-family: 'Courier New', monospace;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         header {
@@ -36,16 +38,16 @@
         h1 {
             color: var(--bright);
             margin: 0;
-            font-size: 22px;
+            font-size: 20px;
         }
 
         .container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1.2fr;
             gap: 20px;
         }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1300px) {
             .container {
                 grid-template-columns: 1fr;
             }
@@ -64,6 +66,7 @@
             margin-bottom: 10px;
             border-bottom: 1px dashed var(--border);
             padding-bottom: 5px;
+            text-transform: uppercase;
         }
 
         .dashboard {
@@ -85,6 +88,9 @@
             color: var(--bright);
         }
 
+        .p-blue { color: var(--blue); }
+        .p-red { color: var(--red); }
+
         .controls {
             display: flex;
             gap: 10px;
@@ -93,10 +99,10 @@
         }
 
         button {
-            background: #222;
+            background: #1c1c1c;
             color: var(--bright);
-            border: 1px solid #444;
-            padding: 8px 16px;
+            border: 1px solid #333;
+            padding: 8px 14px;
             cursor: pointer;
             font-family: inherit;
             font-weight: bold;
@@ -104,8 +110,8 @@
         }
 
         button:hover {
-            background: #333;
-            border-color: #666;
+            background: #2a2a2a;
+            border-color: #555;
         }
 
         button.active {
@@ -114,11 +120,14 @@
             border-color: var(--green);
         }
 
+        button.download-a { border-left: 4px solid var(--blue); }
+        button.download-b { border-left: 4px solid var(--red); }
+
         .board-container {
             display: flex;
             justify-content: center;
             background: var(--bg0);
-            padding: 20px;
+            padding: 15px;
             border: 1px solid var(--border);
         }
 
@@ -126,9 +135,9 @@
             display: grid;
             grid-template-columns: repeat(10, var(--cell-size));
             grid-template-rows: repeat(8, var(--cell-size));
-            gap: 2px;
-            background: #1c1c1c;
-            border: 4px solid #333;
+            gap: 1px;
+            background: var(--border);
+            border: 3px solid #333;
         }
 
         .cell {
@@ -136,15 +145,33 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
             user-select: none;
         }
 
-        .cell.blue-piece { color: var(--blue); }
-        .cell.red-piece { color: var(--red); }
-        .cell.laser-path { background: rgba(255, 255, 0, 0.15); color: var(--yellow); }
-        .cell.empty { color: #333; }
+        .cell.reserved-blue { background-color: var(--blue-tint); }
+        .cell.reserved-red { background-color: var(--red-tint); }
+        .cell.laser-path { background: rgba(255, 255, 0, 0.12); color: var(--yellow); }
+
+        /* BIFURCATED LOGS CONTAINER GRID */
+        .logs-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .logs-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .log-column {
+            display: flex;
+            flex-direction: column;
+        }
 
         .log-box {
             background: var(--bg0);
@@ -153,55 +180,57 @@
             overflow-y: scroll;
             padding: 10px;
             font-size: 11px;
-            display: flex;
-            flex-direction: column-reverse;
         }
 
+        .log-box.model-a-box { border-top: 3px solid var(--blue); }
+        .log-box.model-b-box { border-top: 3px solid var(--red); }
+
         .log-entry {
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             white-space: pre-wrap;
-            border-bottom: 1px solid #222;
-            padding-bottom: 10px;
+            border-bottom: 1px solid #141414;
+            padding-bottom: 4px;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>LASER CHESS RL - HIGH PERFORMANCE IMMUNE TERMINAL</h1>
-        <p>Monte Carlo macro-history matching featuring active OS-level Screen Wake Lock processing.</p>
+        <h1>LASER CHESS RL - ASYMMETRIC TRAINING CORE WITH BIFURCATED EXPORTERS</h1>
+        <p>Isolated updates, decoupled storage JSON compilation streams, and full game logic verification tracking.</p>
     </header>
 
     <div class="controls">
-        <button id="btn-toggle" class="active">PAUSE AUTO-PLAY</button>
-        <button id="btn-speed">SPEED: FAST (50ms)</button>
-        <button id="btn-download">DOWNLOAD TRAINING DATA (JSON)</button>
-        <button id="btn-reset" style="border-color: var(--red);">RESET TABLES</button>
+        <button id="btn-toggle" class="active">PAUSE TRAINING</button>
+        <button id="btn-speed">SPEED: TURBO OVERDRIVE (0ms)</button>
+        <button id="btn-download-a" class="download-a">DOWNLOAD MODEL A POLICY (JSON)</button>
+        <button id="btn-download-b" class="download-b">DOWNLOAD MODEL B POLICY (JSON)</button>
+        <button id="btn-reset" style="border-color: var(--red);">RESET ARRAYS & LOGS</button>
     </div>
 
     <div class="container">
         <div class="panel">
-            <div class="panel-title">🟢 LIVE ENVIRONMENT COLOR VIEWPORT</div>
+            <div class="panel-title">📡 Live Interface Viewport</div>
             <div class="dashboard">
                 <div class="stat-box">
-                    <div>Matches Played</div>
+                    <div>Matches Completed</div>
                     <div id="stat-matches" class="stat-val">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Active Turn Instance</div>
+                    <div>Active Phase State</div>
                     <div id="stat-turn" class="stat-val"><span class="p-blue">BLUE</span></div>
                 </div>
                 <div class="stat-box">
-                    <div>Model A Wins (Blue / 1)</div>
+                    <div>Model A (Blue) Wins</div>
                     <div id="stat-wins-a" class="stat-val p-blue">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Model B Wins (Red / 0)</div>
+                    <div>Model B (Red) Wins</div>
                     <div id="stat-wins-b" class="stat-val p-red">0</div>
                 </div>
                 <div class="stat-box" style="grid-column: span 2; border-color: #333;">
-                    <div>Hardware Performance Mode (Wake Lock)</div>
-                    <div id="stat-wakelock" class="stat-val" style="color: var(--yellow);">INITIALIZING ENGINE...</div>
+                    <div>Hardware Keep-Alive Shield</div>
+                    <div id="stat-wakelock" class="stat-val" style="color: var(--yellow);">INITIALIZING ENGINE PROTECTION...</div>
                 </div>
             </div>
             
@@ -211,27 +240,36 @@
         </div>
 
         <div class="panel">
-            <div class="panel-title">💾 RETROACTIVE GAME HISTORY KEY LOG</div>
+            <div class="panel-title">💾 Asymmetric Update Matrix Interfaces</div>
             <div class="dashboard">
                 <div class="stat-box">
-                    <div>Model A Unique States</div>
-                    <div id="stat-q-a" class="stat-val">0 keys</div>
+                    <div>Model A Table Size</div>
+                    <div id="stat-q-a" class="stat-val">0 nodes</div>
                 </div>
                 <div class="stat-box">
-                    <div>Model B Unique States</div>
-                    <div id="stat-q-b" class="stat-val">0 keys</div>
+                    <div>Model B Table Size</div>
+                    <div id="stat-q-b" class="stat-val">0 nodes</div>
                 </div>
                 <div class="stat-box">
-                    <div>Active Game Steps</div>
+                    <div>Current Action Step</div>
                     <div id="stat-steps" class="stat-val">0</div>
                 </div>
                 <div class="stat-box">
-                    <div>Macro-Reward Trace</div>
+                    <div>Terminal Return Delta</div>
                     <div id="stat-reward" class="stat-val">0</div>
                 </div>
             </div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Macro History Backpropagation Updates:</div>
-            <div class="log-box" id="ql-log"></div>
+            
+            <div class="logs-grid">
+                <div class="log-column">
+                    <div style="font-weight: bold; margin-bottom: 5px; color: var(--blue);">Model A (Blue) Trace Backprop:</div>
+                    <div class="log-box model-a-box" id="ql-log-a"></div>
+                </div>
+                <div class="log-column">
+                    <div style="font-weight: bold; margin-bottom: 5px; color: var(--red);">Model B (Red) Trace Backprop:</div>
+                    <div class="log-box model-b-box" id="ql-log-b"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -239,8 +277,10 @@
     (() => {
         'use strict';
 
+        // --- ATOMIC CONFIGURATION CONSTANTS FROM INDEX.HTML ---
         const DIRS = [ { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 } ]; 
-        const ROTATION_SYMBOLS = { 
+        
+        const ROTATION_TABLE = { 
             KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' }, 
             LASER: { 0: '⫝', 1: '⟜', 2: 'Ͳ', 3: 'Ð' }, 
             SWITCH: { 0: '⟋', 1: '⟍', 2: '⟋', 3: '⟍' }, 
@@ -285,45 +325,47 @@
         };
 
         const INITIAL_PIECES = [
-            {pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
-            {pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
-            {pieceType: "DEFENDER", color: "RED", rotation: 2, x: 4, y: 7},
-            {pieceType: "DEFENDER", color: "RED", rotation: 2, x: 6, y: 7},
-            {pieceType: "DEFENDER", color: "BLUE", rotation: 0, x: 5, y: 0},
-            {pieceType: "DEFENDER", color: "BLUE", rotation: 0, x: 3, y: 0},
-            {pieceType: "SWITCH", color: "BLUE", rotation: 0, x: 5, y: 3},
-            {pieceType: "SWITCH", color: "BLUE", rotation: 1, x: 4, y: 3},
-            {pieceType: "SWITCH", color: "RED", rotation: 0, x: 4, y: 4},
-            {pieceType: "SWITCH", color: "RED", rotation: 1, x: 5, y: 4},
-            {pieceType: "LASER", color: "RED", rotation: 2, x: 0, y: 7},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 0},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 3},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 2, y: 4},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 0, y: 3},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 0, y: 4},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 3, x: 7, y: 1},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 6, y: 2},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 4},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 7, y: 3},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 9, y: 3},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 9, y: 4},
-            {pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 3, y: 5},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 1, x: 2, y: 6},
-            {pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 7},
-            {pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
+            {id: "pmpfnkxpm1", pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
+            {id: "pmpfnl4j03", pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
+            {id: "pmpfqugdq4", pieceType: "DEFENDER", color: "RED", rotation: 0, x: 4, y: 7},
+            {id: "pmpfquhvx5", pieceType: "DEFENDER", color: "RED", rotation: 2, x: 6, y: 7},
+            {id: "pmpfqunnp6", pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 5, y: 0},
+            {id: "pmpfquoqi7", pieceType: "DEFENDER", color: "BLUE", rotation: 2, x: 3, y: 0},
+            {id: "pmpfqvc388", pieceType: "SWITCH", color: "BLUE", rotation: 0, x: 5, y: 3},
+            {id: "pmpfqvfrb9", pieceType: "SWITCH", color: "BLUE", rotation: 1, x: 4, y: 3},
+            {id: "pmpfqvl06a", pieceType: "SWITCH", color: "RED", rotation: 0, x: 4, y: 4},
+            {id: "pmpfqvre4b", pieceType: "SWITCH", color: "RED", rotation: 1, x: 5, y: 4},
+            {id: "pmpfqwdqec", pieceType: "LASER", color: "RED", rotation: 2, x: 0, y: 7},
+            {id: "pmpfqy5dve", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 0},
+            {id: "pmpfqya0pf", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 2, y: 3},
+            {id: "pmpfqyd1rg", pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 2, y: 4},
+            {id: "pmpfqz0jlj", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 0, y: 3},
+            {id: "pmpfqz7fpk", pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 0, y: 4},
+            {id: "pmpfqzj2ul", pieceType: "DEFLECTOR", color: "BLUE", rotation: 3, x: 7, y: 1},
+            {id: "pmpfr0e5km", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 6, y: 2},
+            {id: "pmpfr0t7zn", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 4},
+            {id: "pmpfr0ww1o", pieceType: "DEFLECTOR", color: "RED", rotation: 3, x: 7, y: 3},
+            {id: "pmpfr18esp", pieceType: "DEFLECTOR", color: "BLUE", rotation: 1, x: 9, y: 3},
+            {id: "pmpfr1bjtq", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 9, y: 4},
+            {id: "pmpfr2ek5s", pieceType: "DEFLECTOR", color: "BLUE", rotation: 2, x: 3, y: 5},
+            {id: "pmpfr2sl8u", pieceType: "DEFLECTOR", color: "RED", rotation: 1, x: 2, y: 6},
+            {id: "pmpfr337lv", pieceType: "DEFLECTOR", color: "RED", rotation: 0, x: 7, y: 7},
+            {id: "pmpfr69imw", pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
         ];
+
+        // --- SEPARATE REPOSITORIES (MODEL A / MODEL B) ---
+        let Q_TABLE_A = {}; 
+        let Q_TABLE_B = {}; 
 
         let gameState = {
             turn: "BLUE",
-            pieces: JSON.parse(JSON.stringify(INITIAL_PIECES)),
+            pieces: [],
             stepCount: 0,
             laserPath: []
         };
 
-        let Q_TABLE_A = {}; 
-        let Q_TABLE_B = {}; 
-
-        const ALPHA = 0.15; 
+        const ALPHA = 0.15;   
+        const GAMMA = 0.95;   
         const EPSILON = 0.15; 
 
         let matchesCount = 0;
@@ -331,125 +373,63 @@
         let modelBWins = 0;
 
         let autoPlayInterval = null;
-        let loopDelay = 50; 
+        let loopDelay = 0; 
         let isRunning = true;
         let wakeLockToken = null;
 
         let gameHistoryTrace = [];
 
+        // --- MATCH MECHANICS VALIDATION CORE ---
         function inBounds(x, y) { return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
-        function getPieceAt(pieces, x, y) { return pieces.find(p => p.x === x && p.y === y) || null; }
-        function isReservedSquare(x, y, color) { 
-            return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); 
+        function normalizeRotation(rot) { return ((Number(rot) || 0) % 4 + 4) % 4; }
+        function isReservedSquare(x, y, color) { return color === 'BLUE' ? RED_RESERVED.some(s => s.x === x && s.y === y) : BLUE_RESERVED.some(s => s.x === x && s.y === y); }
+        function getPieceAt(pieces, x, y) { return pieces.find(p => p && p.x === x && p.y === y) || null; }
+        
+        function interactWithLaser(piece, incomingDir) {
+            const typeMap = INTERACTION_MAP[piece.pieceType];
+            if (!typeMap) return { kind: 'stop', destroyed: false };
+            const outcome = typeMap[normalizeRotation(piece.rotation)]?.[incomingDir];
+            if (!outcome) return { kind: 'stop', destroyed: false };
+            if (outcome.action === 'reflect') return { kind: 'reflect', destroyed: false, reflected: outcome.nextDir };
+            if (outcome.action === 'block') return { kind: 'stop', blocked: true, destroyed: false };
+            if (outcome.action === 'destroy') return { kind: 'stop', destroyed: true };
+            return { kind: 'stop', destroyed: false };
         }
 
-        // --- HARDWARE ANTI-SLEEP REGULATION ---
-        async function triggerSystemWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    wakeLockToken = await navigator.wakeLock.request('screen');
-                    const label = document.getElementById('stat-wakelock');
-                    label.textContent = "ACTIVE (CPU Unlocked & Never Sleep)";
-                    label.style.color = "var(--green)";
-                } catch (err) {
-                    const label = document.getElementById('stat-wakelock');
-                    label.textContent = "OS RESTRICTION: " + err.message;
-                    label.style.color = "var(--red)";
-                }
-            } else {
-                const label = document.getElementById('stat-wakelock');
-                label.textContent = "UNSUPPORTED BY BROWSER (Upgrade browser to guarantee unthrottled clocks)";
-                label.style.color = "var(--yellow)";
+        function resolveLaserVector(x, y, dir, pieces, path = [], seen = new Set()) {
+            if (!inBounds(x, y)) return { path, hit: null, looped: false };
+            const stateKey = `${x},${y},${dir}`;
+            if (seen.has(stateKey)) return { path, hit: null, looped: true };
+            seen.add(stateKey);
+            path.push({ x, y, dir });
+
+            const piece = getPieceAt(pieces, x, y);
+            if (!piece) return resolveLaserVector(x + DIRS[dir].dx, y + DIRS[dir].dy, dir, pieces, path, seen);
+
+            const outcome = interactWithLaser(piece, dir);
+            if (outcome.kind === 'reflect') {
+                const nextDir = outcome.reflected;
+                return resolveLaserVector(x + DIRS[nextDir].dx, y + DIRS[nextDir].dy, nextDir, pieces, path, seen);
             }
-        }
-
-        // Re-acquire lock automatically if user minimizes window and re-focuses it
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLockToken !== null && document.visibilityState === 'visible') {
-                await triggerSystemWakeLock();
-            }
-        });
-
-        function generateRLStateKey(pieces, turn) {
-            let geometryASCII = "";
-            let ownershipASCII = "";
-
-            for (let y = 7; y >= 0; y--) {
-                let geoRow = "";
-                let ownRow = "";
-                for (let x = 0; x < 10; x++) {
-                    const piece = getPieceAt(pieces, x, y);
-                    if (piece) {
-                        geoRow += ROTATION_SYMBOLS[piece.pieceType][piece.rotation];
-                        ownRow += (piece.color === 'BLUE' ? '1' : '0');
-                    } else {
-                        geoRow += ".";
-                        ownRow += ".";
-                    }
-                }
-                geometryASCII += geoRow + "\n";
-                ownershipASCII += ownRow + "\n";
-            }
-
-            const extraDigit = (turn === "BLUE" ? "1" : "0");
-            return `${geometryASCII.trim()}\n[MAP]\n${ownershipASCII.trim()}\n[T:${extraDigit}]`;
-        }
-
-        function resolveLaserVector(pieces) {
-            const shooter = pieces.find(p => p.pieceType === 'LASER' && p.color === gameState.turn);
-            if (!shooter) return { path: [], hit: null };
-
-            let x = shooter.x + DIRS[shooter.rotation].dx;
-            let y = shooter.y + DIRS[shooter.rotation].dy;
-            let dir = shooter.rotation;
-            let path = [];
-            let seen = new Set();
-
-            while (inBounds(x, y)) {
-                const stepKey = `${x},${y},${dir}`;
-                if (seen.has(stepKey)) return { path, hit: null };
-                seen.add(stepKey);
-                path.push({ x, y, dir });
-
-                const piece = getPieceAt(pieces, x, y);
-                if (piece) {
-                    const typeMap = INTERACTION_MAP[piece.pieceType];
-                    if (!typeMap) return { path, hit: { piece, destroyed: false } };
-                    const outcome = typeMap[piece.rotation]?.[dir];
-
-                    if (!outcome) return { path, hit: { piece, destroyed: false } };
-                    if (outcome.action === 'reflect') {
-                        dir = outcome.nextDir;
-                        x += DIRS[dir].dx;
-                        y += DIRS[dir].dy;
-                        continue;
-                    }
-                    if (outcome.action === 'block') return { path, hit: { piece, destroyed: false } };
-                    if (outcome.action === 'destroy') return { path, hit: { piece, destroyed: true } };
-                }
-                x += DIRS[dir].dx;
-                y += DIRS[dir].dy;
-            }
-            return { path, hit: null };
+            return { path, hit: { piece, blocked: !!outcome.blocked, destroyed: !!outcome.destroyed }, looped: false };
         }
 
         function getLegalActions(color, pieces) {
-            let actions = [{ type: 'FIRE' }];
+            let actions = [{ type: 'FIRE' }]; 
 
             for (const p of pieces) {
                 if (p.color !== color) continue;
 
-                if (p.pieceType !== 'LASER') {
-                    if (p.pieceType !== 'KING') {
-                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 });  
-                        actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); 
-                    }
+                if (p.pieceType !== 'LASER') { 
+                    actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: normalizeRotation(p.rotation + 1) });
+                    actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: normalizeRotation(p.rotation - 1) });
+
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             if (dx === 0 && dy === 0) continue;
                             const nx = p.x + dx;
                             const ny = p.y + dy;
-                            if (!inBounds(nx, ny) || isReservedSquare(nx, ny, color)) continue;
+                            if (!inBounds(nx, ny) || isReservedSquare(nx, ny, p.color)) continue;
 
                             const target = getPieceAt(pieces, nx, ny);
                             if (!target) {
@@ -462,30 +442,64 @@
                         }
                     }
                 } else {
-                    if (color === 'BLUE') {
-                        if (p.rotation === 0) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 3 }); 
-                        if (p.rotation === 3) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -3 }); 
+                    if (p.color === 'BLUE') {
+                        if (normalizeRotation(p.rotation) === 0) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 3 });
+                        if (normalizeRotation(p.rotation) === 3) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 0 });
                     } else {
-                        if (p.rotation === 1) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: 1 }); 
-                        if (p.rotation === 2) actions.push({ type: 'ROTATE', x: p.x, y: p.y, dir: -1 }); 
+                        if (normalizeRotation(p.rotation) === 1) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 2 });
+                        if (normalizeRotation(p.rotation) === 2) actions.push({ type: 'ROTATE', x: p.x, y: p.y, rot: 1 });
                     }
                 }
             }
             return actions;
         }
 
+        // --- HARDWARE POWER ARCHITECTURE MANAGEMENT ---
+        async function triggerSystemWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLockToken = await navigator.wakeLock.request('screen');
+                    const label = document.getElementById('stat-wakelock');
+                    label.textContent = "ACTIVE (Paranoia Layer Running)";
+                    label.style.color = "var(--green)";
+                } catch (err) {
+                    const label = document.getElementById('stat-wakelock');
+                    label.textContent = "RESTRICTED: " + err.message;
+                }
+            } else {
+                const label = document.getElementById('stat-wakelock');
+                label.textContent = "API LAYER ABSENT (Keep view active)";
+            }
+        }
+
+        // --- RL STATE TRANSLATION SYSTEM ---
+        function generateRLStateKey(pieces, turn) {
+            let layoutStr = "";
+            for (let y = 7; y >= 0; y--) {
+                for (let x = 0; x < 10; x++) {
+                    const p = getPieceAt(pieces, x, y);
+                    if (p) {
+                        layoutStr += `${p.pieceType[0]}${p.color[0]}${p.rotation}`;
+                    } else {
+                        layoutStr += "···";
+                    }
+                    if (x < 9) layoutStr += ",";
+                }
+                if (y > 0) layoutStr += "|";
+            }
+            return `[${layoutStr}][T:${turn === 'BLUE' ? 'A' : 'B'}]`;
+        }
+
         function stringifyAction(act) {
-            if (act.type === 'FIRE') return "FIRE";
-            if (act.type === 'ROTATE') return `ROT:${act.x},${act.y}:${act.dir}`;
-            if (act.type === 'MOVE') return `MOV:${act.fx},${act.fy}->${act.tx},${act.ty}`;
-            return "UNKNOWN";
+            if (act.type === 'FIRE') return "FIRE_LASER_SKIP";
+            if (act.type === 'ROTATE') return `ROT:[${act.x},${act.y}]->${act.rot}`;
+            if (act.type === 'MOVE') return `MOV:[${act.fx},${act.fy}]->[${act.tx},${act.ty}]`;
+            return "NULL";
         }
 
         function getQValue(model, state, actionStr) {
             const table = (model === 'A') ? Q_TABLE_A : Q_TABLE_B;
-            if (!table[state]) return 0.0;
-            if (table[state][actionStr] === undefined) return 0.0;
-            return table[state][actionStr];
+            return (table[state] && table[state][actionStr] !== undefined) ? table[state][actionStr] : 0.0;
         }
 
         function setQValue(model, state, actionStr, val) {
@@ -494,39 +508,74 @@
             table[state][actionStr] = val;
         }
 
-        function backpropagateEntireGameHistory(winningModel) {
-            let sampleLogged = false;
+        // --- BIFURCATED ROUTING BACKPROPAGATION ENGINE ---
+        function backpropagateEntireGameHistory(winningModel, terminalReward) {
+            const totalSteps = gameHistoryTrace.length;
+            const logA = document.getElementById('ql-log-a');
+            const logB = document.getElementById('ql-log-b');
+            
+            // Inject structural validation milestones inside both viewports
+            const markerA = document.createElement('div');
+            markerA.style.borderLeft = "2px solid var(--blue)";
+            markerA.style.background = "#07111a";
+            markerA.style.padding = "4px";
+            markerA.style.margin = "6px 0";
+            markerA.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '+1000' : '-1000')}`;
+            logA.appendChild(markerA);
 
-            for (const record of gameHistoryTrace) {
-                let targetReward = 0;
+            const markerB = document.createElement('div');
+            markerB.style.borderLeft = "2px solid var(--red)";
+            markerB.style.background = "#1a0707";
+            markerB.style.padding = "4px";
+            markerB.style.margin = "6px 0";
+            markerB.innerHTML = `🏁 <b>Match #${matchesCount} Summary:</b> End Target Reward = ${winningModel === 'DRAW' ? '0' : (winningModel === 'A' ? '-1000' : '+1000')}`;
+            logB.appendChild(markerB);
+
+            // Execute full recursive backwards backprop loop (T-1 -> 0)
+            for (let t = totalSteps - 1; t >= 0; t--) {
+                const record = gameHistoryTrace[t];
                 
-                if (winningModel === 'DRAW') {
-                    targetReward = 0;
-                } else {
-                    if (record.model === winningModel) {
-                        targetReward = 1000;
-                    } else {
-                        targetReward = -1000;
-                    }
+                let outcomeSign = 0;
+                if (winningModel !== 'DRAW') {
+                    outcomeSign = (record.model === winningModel) ? 1 : -1;
                 }
+                
+                const stepTerminalReward = Math.abs(terminalReward) * outcomeSign;
+                const distanceToTerminal = (totalSteps - 1) - t;
+                const discountedReturn = Math.pow(GAMMA, distanceToTerminal) * stepTerminalReward;
 
                 const oldQ = getQValue(record.model, record.state, record.action);
-                const newQ = oldQ + ALPHA * (targetReward - oldQ);
+                const newQ = oldQ + ALPHA * (discountedReturn - oldQ);
                 setQValue(record.model, record.state, record.action, newQ);
 
-                if (!sampleLogged) {
-                    logQHistoryUpdate(record.model, record.state, record.action, targetReward, newQ, gameHistoryTrace.length);
-                    sampleLogged = true;
+                // Construct isolated text node elements matching targeted source models
+                const traceRow = document.createElement('div');
+                traceRow.style.fontSize = "10px";
+                traceRow.style.paddingLeft = "5px";
+                traceRow.innerHTML = `• Step [${t}] -> Return: ${discountedReturn.toFixed(1)} | Q: ${newQ.toFixed(4)}<br><span style="color:#666;">Act: ${record.action}</span>`;
+
+                if (record.model === 'A') {
+                    logA.appendChild(traceRow);
+                } else {
+                    logB.appendChild(traceRow);
                 }
             }
+            
+            logA.scrollTop = logA.scrollHeight;
+            logB.scrollTop = logB.scrollHeight;
         }
 
+        // --- SIMULATION STEP TICK ---
         function stepSimulation() {
             const currentModel = (gameState.turn === 'BLUE') ? 'A' : 'B';
-
             const currentStateKey = generateRLStateKey(gameState.pieces, gameState.turn);
             const legalActs = getLegalActions(gameState.turn, gameState.pieces);
             
+            if (legalActs.length === 0) {
+                concludeMatch('DRAW', 0);
+                return;
+            }
+
             let selectedAction = null;
             if (Math.random() < EPSILON) {
                 selectedAction = legalActs[Math.floor(Math.random() * legalActs.length)];
@@ -567,50 +616,63 @@
                 }
             } else if (selectedAction.type === 'ROTATE') {
                 const p = getPieceAt(gameState.pieces, selectedAction.x, selectedAction.y);
-                if (p) p.rotation = (p.rotation + selectedAction.dir + 4) % 4;
+                if (p) p.rotation = selectedAction.rot;
             }
 
-            const calculation = resolveLaserVector(gameState.pieces);
-            gameState.laserPath = calculation.path;
-
+            const activeShooterColor = gameState.turn;
+            const shooter = gameState.pieces.find(p => p && p.pieceType === 'LASER' && p.color === activeShooterColor);
+            
             let terminalStatus = null;
+            gameState.laserPath = [];
 
-            if (calculation.hit && calculation.hit.destroyed) {
-                const victim = calculation.hit.piece;
-                gameState.pieces = gameState.pieces.filter(p => !(p.x === victim.x && p.y === victim.y));
-                if (victim.pieceType === 'KING') {
-                    terminalStatus = (victim.color === 'RED') ? 'WIN_A' : 'WIN_B';
+            if (shooter) {
+                const startDir = normalizeRotation(shooter.rotation);
+                const trace = resolveLaserVector(shooter.x + DIRS[startDir].dx, shooter.y + DIRS[startDir].dy, startDir, gameState.pieces);
+                gameState.laserPath = trace.path;
+
+                if (trace.hit && trace.hit.destroyed) {
+                    const victim = trace.hit.piece;
+                    gameState.pieces = gameState.pieces.filter(p => !(p.x === victim.x && p.y === victim.y));
+                    if (victim.pieceType === 'KING') {
+                        terminalStatus = (victim.color === 'RED') ? 'WIN_A' : 'WIN_B';
+                    }
                 }
             }
 
             gameState.stepCount++;
+            
             if (!terminalStatus && gameState.stepCount >= 200) {
                 terminalStatus = 'DRAW';
             }
 
             if (terminalStatus) {
-                matchesCount++;
-                if (terminalStatus === 'WIN_A') {
-                    modelAWins++;
-                    backpropagateEntireGameHistory('A');
-                    logMatchTermination(`MATCH #${matchesCount}: Model A (Blue) WINS. King Destroyed.`);
-                    updateDashboardReward("+1000");
-                } else if (terminalStatus === 'WIN_B') {
-                    modelBWins++;
-                    backpropagateEntireGameHistory('B');
-                    logMatchTermination(`MATCH #${matchesCount}: Model B (Red) WINS. King Destroyed.`);
-                    updateDashboardReward("-1000");
-                } else {
-                    backpropagateEntireGameHistory('DRAW');
-                    logMatchTermination(`MATCH #${matchesCount}: DRAW.`);
-                    updateDashboardReward("0");
-                }
-                resetEnvironment();
+                if (terminalStatus === 'WIN_A') concludeMatch('A', 1000);
+                else if (terminalStatus === 'WIN_B') concludeMatch('B', 1000);
+                else concludeMatch('DRAW', 0);
             } else {
                 gameState.turn = (gameState.turn === 'BLUE') ? 'RED' : 'BLUE';
             }
 
             renderView();
+        }
+
+        function concludeMatch(winner, rewardValue) {
+            matchesCount++;
+            if (winner === 'A') {
+                modelAWins++;
+                document.getElementById('stat-reward').textContent = "+1000";
+                document.getElementById('stat-reward').style.color = "var(--blue)";
+            } else if (winner === 'B') {
+                modelBWins++;
+                document.getElementById('stat-reward').textContent = "-1000";
+                document.getElementById('stat-reward').style.color = "var(--red)";
+            } else {
+                document.getElementById('stat-reward').textContent = "0";
+                document.getElementById('stat-reward').style.color = "var(--text)";
+            }
+
+            backpropagateEntireGameHistory(winner, rewardValue);
+            resetEnvironment();
         }
 
         function resetEnvironment() {
@@ -621,131 +683,141 @@
             gameHistoryTrace = []; 
         }
 
+        // --- DYNAMIC RENDERING INTERFACE MODULE ---
         const gridEl = document.getElementById('viewport-grid');
-        const statMatches = document.getElementById('stat-matches');
-        const statTurn = document.getElementById('stat-turn');
-        const statWinsA = document.getElementById('stat-wins-a');
-        const statWinsB = document.getElementById('stat-wins-b');
-        const statQA = document.getElementById('stat-q-a');
-        const statQB = document.getElementById('stat-q-b');
-        const statSteps = document.getElementById('stat-steps');
-        const statReward = document.getElementById('stat-reward');
-        const qlLog = document.getElementById('ql-log');
 
         function renderView() {
             gridEl.innerHTML = "";
+            const gridMatrix = Array.from({ length: 8 }, () => Array(10).fill(null));
+            for (const p of gameState.pieces) {
+                if (p && inBounds(p.x, p.y)) gridMatrix[p.y][p.x] = p;
+            }
+
             for (let y = 7; y >= 0; y--) {
                 for (let x = 0; x < 10; x++) {
                     const cell = document.createElement('div');
-                    const piece = getPieceAt(gameState.pieces, x, y);
-                    const pathSeg = gameState.laserPath.find(p => p.x === x && p.y === y);
+                    cell.className = "cell";
+                    
+                    if (BLUE_RESERVED.some(s => s.x === x && s.y === y)) cell.classList.add('reserved-blue');
+                    if (RED_RESERVED.some(s => s.x === x && s.y === y)) cell.classList.add('reserved-red');
 
-                    if (piece) {
-                        cell.className = `cell ${piece.color === 'BLUE' ? 'blue-piece' : 'red-piece'}`;
-                        cell.textContent = ROTATION_SYMBOLS[piece.pieceType][piece.rotation];
-                    } else if (pathSeg) {
-                        cell.className = "cell laser-path";
-                        cell.textContent = "☼";
+                    const p = gridMatrix[y][x];
+                    const pathSegment = gameState.laserPath.find(seg => seg.x === x && seg.y === y);
+
+                    if (p) {
+                        cell.className += ` ${p.color === 'BLUE' ? 'p-blue' : 'p-red'}`;
+                        cell.textContent = ROTATION_TABLE[p.pieceType][normalizeRotation(p.rotation)];
+                    } else if (pathSegment) {
+                        cell.classList.add('laser-path');
+                        const arrowSymbols = ['^', '>', 'v', '<'];
+                        cell.textContent = arrowSymbols[pathSegment.dir];
                     } else {
-                        cell.className = "cell empty";
-                        cell.textContent = ".";
+                        cell.style.color = "#1f1f1f";
+                        cell.textContent = "·";
                     }
                     gridEl.appendChild(cell);
                 }
             }
 
-            statMatches.textContent = matchesCount;
-            statTurn.innerHTML = gameState.turn === 'BLUE' ? '<span class="p-blue">BLUE (Model A)</span>' : '<span class="p-red">RED (Model B)</span>';
-            statWinsA.textContent = modelAWins;
-            statWinsB.textContent = modelBWins;
-            statQA.textContent = `${Object.keys(Q_TABLE_A).length}`;
-            statQB.textContent = `${Object.keys(Q_TABLE_B).length}`;
-            statSteps.textContent = gameHistoryTrace.length;
+            document.getElementById('stat-matches').textContent = matchesCount;
+            document.getElementById('stat-turn').innerHTML = gameState.turn === 'BLUE' ? '<span class="p-blue">BLUE (Model A)</span>' : '<span class="p-red">RED (Model B)</span>';
+            document.getElementById('stat-wins-a').textContent = modelAWins;
+            document.getElementById('stat-wins-b').textContent = modelBWins;
+            document.getElementById('stat-q-a').textContent = `${Object.keys(Q_TABLE_A).length} mappings`;
+            document.getElementById('stat-q-b').textContent = `${Object.keys(Q_TABLE_B).length} mappings`;
+            document.getElementById('stat-steps').textContent = gameState.stepCount;
         }
 
-        function updateDashboardReward(rewardText) {
-            statReward.textContent = rewardText;
-            if (rewardText === "0") statReward.style.color = "var(--text)";
-            else statReward.style.color = rewardText.includes("+") ? "var(--green)" : "var(--red)";
-        }
-
-        function logMatchTermination(msg) {
-            const entry = document.createElement('div');
-            entry.className = "log-entry";
-            entry.style.color = "var(--yellow)";
-            entry.innerHTML = `💀 <b>[King Death Event]: ${msg}</b>`;
-            qlLog.appendChild(entry);
-        }
-
-        function logQHistoryUpdate(model, state, action, reward, value, historyCount) {
-            const entry = document.createElement('div');
-            entry.className = "log-entry";
-            entry.innerHTML = `⚡ <b>History Trace Backprop:</b> Applied ${reward > 0 ? '+'+reward : reward} directly to all ${historyCount} positions.<br><b>Sample Model ${model} State Node:</b> [Action: ${action}] -> [New Meta Q: ${value.toFixed(4)}]<br><span style="color:var(--green);">Active Board Composite Key Structure:</span><br><span style="color:#777; font-size:10px;">${state.replace(/\n/g, '<br>')}</span>`;
-            qlLog.appendChild(entry);
-            if (qlLog.childNodes.length > 20) qlLog.removeChild(qlLog.firstChild);
-        }
-
+        // --- SEPARATE ACTION HANDLER CAPTURES ---
         const btnToggle = document.getElementById('btn-toggle');
         const btnSpeed = document.getElementById('btn-speed');
-        const btnDownload = document.getElementById('btn-download');
+        const btnDownloadA = document.getElementById('btn-download-a');
+        const btnDownloadB = document.getElementById('btn-download-b');
         const btnReset = document.getElementById('btn-reset');
 
         btnToggle.addEventListener('click', () => {
             isRunning = !isRunning;
             if (isRunning) {
-                btnToggle.textContent = "PAUSE AUTO-PLAY";
+                btnToggle.textContent = "PAUSE TRAINING";
                 btnToggle.classList.add('active');
                 runLoop();
             } else {
-                btnToggle.textContent = "RESUME AUTO-PLAY";
+                btnToggle.textContent = "RESUME TRAINING";
                 btnToggle.classList.remove('active');
                 clearTimeout(autoPlayInterval);
             }
         });
 
         btnSpeed.addEventListener('click', () => {
-            if (loopDelay === 50) {
-                loopDelay = 0;
-                btnSpeed.textContent = "SPEED: TURBO NO-DELAY (0ms)";
-            } else if (loopDelay === 0) {
-                loopDelay = 500;
-                btnSpeed.textContent = "SPEED: SLOW MODE (500ms)";
-            } else {
+            if (loopDelay === 0) {
                 loopDelay = 50;
-                btnSpeed.textContent = "SPEED: FAST MODE (50ms)";
+                btnSpeed.textContent = "SPEED: BALANCED MODE (50ms)";
+            } else if (loopDelay === 50) {
+                loopDelay = 400;
+                btnSpeed.textContent = "SPEED: OBSERVATION MODE (400ms)";
+            } else {
+                loopDelay = 0;
+                btnSpeed.textContent = "SPEED: TURBO OVERDRIVE (0ms)";
             }
         });
 
         btnReset.addEventListener('click', () => {
-            if (confirm("Clear macro lookup tables?")) {
+            if (confirm("Clear isolated Q-Tables and trace structures?")) {
                 Q_TABLE_A = {}; Q_TABLE_B = {};
                 matchesCount = 0; modelAWins = 0; modelBWins = 0;
-                resetEnvironment(); renderView(); qlLog.innerHTML = "";
-                updateDashboardReward("0");
+                document.getElementById('ql-log-a').innerHTML = "";
+                document.getElementById('ql-log-b').innerHTML = "";
+                resetEnvironment(); renderView();
             }
         });
 
-        btnDownload.addEventListener('click', () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
-                metadata: { engine: "Monte Carlo Anti-Sleep Match QL V5", matches: matchesCount, winsA: modelAWins, winsB: modelBWins },
-                tables: { model_A_blue_macro: Q_TABLE_A, model_B_red_macro: Q_TABLE_B }
-            }, null, 2));
-            const dl = document.createElement('a');
-            dl.setAttribute("href", dataStr);
-            dl.setAttribute("download", `macro_history_laser_chess_data.json`);
-            dl.click();
-            dl.remove();
+        // DISTINCT EXPORTER CONTROLLERS
+        btnDownloadA.addEventListener('click', () => {
+            const dataPayload = {
+                targetPolicyModel: "MODEL_A_BLUE",
+                timestamp: Date.now(),
+                metrics: { matchesPlayed: matchesCount, modelWins: modelAWins },
+                graphStates: Q_TABLE_A
+            };
+            exportJSONFile(dataPayload, 'laser_chess_policy_model_A_blue.json');
         });
+
+        btnDownloadB.addEventListener('click', () => {
+            const dataPayload = {
+                targetPolicyModel: "MODEL_B_RED",
+                timestamp: Date.now(),
+                metrics: { matchesPlayed: matchesCount, modelWins: modelBWins },
+                graphStates: Q_TABLE_B
+            };
+            exportJSONFile(dataPayload, 'laser_chess_policy_model_B_red.json');
+        });
+
+        function exportJSONFile(payload, filename) {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", filename);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
 
         function runLoop() {
             if (!isRunning) return;
             stepSimulation();
-            autoPlayInterval = setTimeout(runLoop, loopDelay);
+            if (loopDelay === 0) {
+                while (isRunning && loopDelay === 0 && gameHistoryTrace.length > 0) {
+                    stepSimulation();
+                }
+                autoPlayInterval = setTimeout(runLoop, 1);
+            } else {
+                autoPlayInterval = setTimeout(runLoop, loopDelay);
+            }
         }
 
+        // --- ENGINES ENGAGED ---
         resetEnvironment();
         renderView();
-        triggerSystemWakeLock(); // Request system-level wake lock immediately upon load
+        triggerSystemWakeLock(); 
         runLoop();
     })();
     </script>

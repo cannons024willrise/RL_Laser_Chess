@@ -180,7 +180,7 @@
           if (!latestState) {
             latestState = {
                 board: {
-                    turn: "RED",
+                    turn: "BLUE", // Updated from RED to BLUE
                     phase: "MOVE",
                     moveNumber: 1,
                     pieces: [
@@ -215,7 +215,7 @@
             };
           }
           printTerminalMatrix(latestState);
-          add("Local Mode Initialized.", "success-msg");
+          add("Local Mode Initialized. Blue plays first.", "success-msg");
       }
 
       function printTerminalMatrix(state, laserPath = [], replace = true) {
@@ -325,7 +325,7 @@
         if (!latestState) return;
         
         const currentTurn = latestState.board?.turn || latestState.turn || 'RED';
-        const activePlayer = currentTurn; // In local mode, the active player is always whoever's turn it currently is.
+        const activePlayer = currentTurn; 
         
         if (intent.action === 'Resign') {
             const winner = currentTurn === 'RED' ? 'BLUE' : 'RED';
@@ -337,7 +337,7 @@
             return;
         }
 
-        if (latestState.status && latestState.status.endsWith('_WIN')) return; // Ignore actions if game over
+        if (latestState.status && latestState.status.endsWith('_WIN')) return; 
 
         try {
             if (intent.action !== 'Turn End' && intent.action !== 'Manual Fire' && intent.piece) {

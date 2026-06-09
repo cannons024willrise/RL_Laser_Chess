@@ -2,94 +2,109 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LASER CHESS - Integrated RL Engine</title>
+    <title>LASER CHESS - RL Engine Integrated</title>
     <style>
-        @font-face { font-family: 'Unifont'; src: url('unifont-15.0.01.ttf') format('truetype'); }
-        :root { 
-            --bg0: #0a0a0a; --bg1: #1a1a1a; --line: #2a2a2a; --text: #b0b0b0; 
-            --bright: #ffffff; --error: #ff5555; --muted: #999999; --blue: #00d4ff; --red: #ff3333;
-        }
-        body { margin: 0; padding: 30px; font-family: 'Unifont', monospace; background: var(--bg0); color: var(--text); }
-        #ai-dashboard { border: 1px solid var(--line); padding: 15px; margin-bottom: 20px; background: var(--bg1); }
-        .matrix-container { background: var(--bg1); padding: 20px; border: 1px solid var(--line); margin-top: 10px; }
-        .matrix-row { display: flex; }
-        .matrix-cell { width: 40px; height: 40px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        :root { --bg: #0a0a0a; --line: #333; --blue: #00d4ff; --red: #ff3333; --text: #ccc; }
+        body { background: var(--bg); color: var(--text); font-family: monospace; padding: 20px; }
+        #dashboard { border: 1px solid var(--line); padding: 15px; background: #111; margin-bottom: 20px; }
+        .board { display: inline-block; border: 1px solid var(--line); padding: 10px; background: #000; }
+        .row { display: flex; }
+        .cell { width: 40px; height: 40px; border: 1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 20px; }
         .p-red { color: var(--red); } .p-blue { color: var(--blue); }
-        .cursor { outline: 2px solid var(--bright); }
-        .history-line { white-space: pre-wrap; font-size: 14px; }
+        .log-box { height: 200px; overflow-y: scroll; border: 1px solid #333; padding: 10px; margin-top: 10px; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <div id="ai-dashboard">
-        <h3 style="margin-top:0; color: var(--blue);">🧠 RL OBSERVATION DECK</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
-            <div>Status: <span id="obs-status">IDLE</span></div>
-            <div>Q-Table: <span id="obs-qsize">0</span></div>
-            <div>Mode: <span id="obs-mode">Twin Play (±1000)</span></div>
+    <div id="dashboard">
+        <h3>🧠 RL Observation Deck</h3>
+        <button onclick="toggleTraining()">Toggle AI Training</button>
+        <button onclick="isHumanVsAI = !isHumanVsAI; updateUI()">Toggle Mode (Twin vs Human)</button>
+        <div>
+            Status: <span id="status">IDLE</span> | 
+            Reward Mode: <span id="reward-mode">Twin Play (±1000)</span> |
+            Q-Table Size: <span id="q-size">0</span>
         </div>
-        <div id="training-log" style="height: 60px; overflow-y: scroll; margin-top: 10px; font-size: 11px; background: #000; padding: 5px;"></div>
+        <div id="training-log" class="log-box"></div>
     </div>
 
-    <div id="terminal-log"></div>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <div id="board-container" class="board"></div>
 
     <script>
-    (() => {
-      'use strict';
-      
-      // --- RL CONFIG ---
-      let Q_TABLE = { 'RED': {}, 'BLUE': {} };
-      let isHumanVsAI = false; // Toggle this to switch rewards
-      const REWARD_SCALE = () => isHumanVsAI ? 10000 : 1000;
+        // --- Game State & RL Variables ---
+        let Q_TABLE = { 'RED': {}, 'BLUE': {} };
+        let isTraining = false;
+        let isHumanVsAI = false;
+        let latestState = { board: { turn: "BLUE", pieces: [] } };
 
-      // --- Core Game Init (Combined) ---
-      let cursorX = 0, cursorY = 0, latestState = null, isLMode = false;
-      const KEY_LOCAL_STATE = 'ls_local_state';
-
-      function getCanonicalState(state) {
-          const pieces = state.board.pieces.map(p => `${p.pieceType[0]}-${p.color[0]}-${p.rotation}-${p.x},${p.y}`).sort().join('|');
-          return `${state.board.turn}-${pieces}`;
-      }
-
-      function updateObservability(action, reward) {
-          document.getElementById('obs-status').textContent = "Active";
-          document.getElementById('obs-qsize').textContent = Object.keys(Q_TABLE.RED).length + Object.keys(Q_TABLE.BLUE).length;
-          document.getElementById('obs-mode').textContent = isHumanVsAI ? "Human vs Model (±10,000)" : "Twin Play (±1,000)";
-          
-          const log = document.getElementById('training-log');
-          const entry = document.createElement('div');
-          entry.textContent = `> Action: ${action} | Reward: ${reward}`;
-          log.prepend(entry);
-      }
-
-      // --- INTEGRATED GAME ACTION ---
-      async function processGameAction(intent) {
-        // ... (Keep existing game logic here)
-        // REWARD LOGIC INTEGRATION
-        const victoryReward = REWARD_SCALE();
-        
-        // When a king is destroyed:
-        if (victim && victim.pieceType === 'KING') { 
-            const winner = victim.color === 'RED' ? 'BLUE' : 'RED';
-            const reward = winner === 'BLUE' ? victoryReward : -victoryReward;
-            updateObservability("KING_DEATH", reward);
-            // Apply Q-Table update with REWARD_SCALE()
+        // --- Core Game Initialization ---
+        function initGame() {
+            latestState.board.pieces = [
+                {id: 1, pieceType: "KING", color: "BLUE", rotation: 0, x: 4, y: 0},
+                {id: 2, pieceType: "KING", color: "RED", rotation: 0, x: 5, y: 7},
+                {id: 3, pieceType: "LASER", color: "RED", rotation: 2, x: 0, y: 7},
+                {id: 4, pieceType: "LASER", color: "BLUE", rotation: 0, x: 9, y: 0}
+            ];
+            renderBoard();
         }
-      }
 
-      // --- MOCK BOOT FOR DEMO ---
-      async function boot() {
-          console.log("Engine Booting...");
-          // Placeholder for your firebase/init logic
-          // startLocalGame() would be called here
-      }
-      
-      window.addEventListener('DOMContentLoaded', boot);
-    })();
+        // --- Rendering Logic ---
+        function renderBoard() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+            for (let y = 7; y >= 0; y--) {
+                const row = document.createElement('div'); row.className = 'row';
+                for (let x = 0; x < 10; x++) {
+                    const cell = document.createElement('div'); cell.className = 'cell';
+                    const piece = latestState.board.pieces.find(p => p.x === x && p.y === y);
+                    if (piece) {
+                        cell.textContent = piece.pieceType[0];
+                        cell.classList.add(piece.color === 'RED' ? 'p-red' : 'p-blue');
+                    } else { cell.textContent = '.'; }
+                    row.appendChild(cell);
+                }
+                container.appendChild(row);
+            }
+        }
+
+        // --- RL Logic ---
+        function getCanonicalState(state) {
+            return state.board.pieces.map(p => `${p.pieceType}-${p.color}-${p.x},${p.y}`).sort().join('|');
+        }
+
+        function toggleTraining() {
+            isTraining = !isTraining;
+            document.getElementById('status').textContent = isTraining ? "TRAINING" : "IDLE";
+            if (isTraining) runTrainingLoop();
+        }
+
+        async function runTrainingLoop() {
+            while (isTraining) {
+                const stateKey = getCanonicalState(latestState);
+                const action = "MOVE_PIECE"; // Logic to pick move goes here
+                const reward = 0; // Logic for outcome goes here
+
+                // Update Q-Table
+                if (!Q_TABLE[latestState.board.turn][stateKey]) Q_TABLE[latestState.board.turn][stateKey] = {};
+                
+                // Update UI
+                document.getElementById('q-size').textContent = Object.keys(Q_TABLE.RED).length + Object.keys(Q_TABLE.BLUE).length;
+                logEvent(`State: ${stateKey.slice(0, 20)}... | Action: ${action} | Reward: ${reward}`);
+                
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
+        function logEvent(msg) {
+            const log = document.getElementById('training-log');
+            log.innerHTML = `<div>${new Date().toLocaleTimeString()} ${msg}</div>` + log.innerHTML;
+        }
+
+        function updateUI() {
+            document.getElementById('reward-mode').textContent = isHumanVsAI ? "Human vs Model (±10,000)" : "Twin Play (±1,000)";
+        }
+
+        initGame();
     </script>
 </body>
 </html>

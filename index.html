@@ -638,6 +638,8 @@
     history: loadHistory(),
     trainingWakeLock: null,
     currentTrajectory: [],
+    episodeTrajectories: { BLUE: [], RED: [] },
+    learningSides: new Set(['BLUE', 'RED']),
     currentEpisodeReward: { BLUE: 0, RED: 0 },
     pendingAfterTurn: null,
     boardHistory: [],
@@ -662,6 +664,10 @@
     if (BLUE_RESERVED.some(s => s.x === x && s.y === y)) return 'reserved-blue';
     if (RED_RESERVED.some(s => s.x === x && s.y === y)) return 'reserved-red';
     return '';
+  }
+
+  function setLearningSides(sides){
+    state.learningSides = new Set(Array.isArray(sides) ? sides : []);
   }
 
   function initialBoard(){
@@ -1008,16 +1014,18 @@
     if (!actions.length) return null;
     if (rand() < epsilon) return choice(actions);
 
-    let best = actions[0];
     let bestV = -Infinity;
+    let bestActions = [];
     for (const a of actions){
       const v = getQValue(side, sKey, serializeAction(a));
-      if (v > bestV){
+      if (v > bestV + 1e-12){
         bestV = v;
-        best = a;
+        bestActions = [a];
+      } else if (Math.abs(v - bestV) <= 1e-12){
+        bestActions.push(a);
       }
     }
-    return best;
+    return choice(bestActions.length ? bestActions : actions);
   }
 
   async function requestWakeLock(){
@@ -1054,6 +1062,7 @@
     state.selected = null;
     state.targetHint = null;
     state.currentTrajectory = [];
+    state.episodeTrajectories = { BLUE: [], RED: [] };
     state.currentEpisodeReward = { BLUE: 0, RED: 0 };
     state.boardHistory = [];
     renderBoard(state.currentBoard, [], null, true);
@@ -1061,7 +1070,7 @@
   }
 
   function recordTransition(side, boardBefore, action, boardAfter, terminal = false){
-    state.currentTrajectory.push({
+    const transition = {
       side,
       s: boardStateKey(boardBefore, side),
       a: serializeAction(action),
@@ -1070,7 +1079,11 @@
       boardAfter: deepClone(boardAfter),
       terminal,
       reward: 0
-    });
+    };
+    state.currentTrajectory.push(transition);
+    if (state.learningSides?.has(side)){
+      state.episodeTrajectories[side].push(transition);
+    }
   }
 
   function applyDiscountedReturns(winnerColor, rewardScale){
@@ -1079,32 +1092,27 @@
     const baseWin = terminalReward(winnerColor, rewardScale);
     const baseLose = -baseWin;
 
-    const returns = { BLUE: baseLose, RED: baseLose };
-    returns[winnerColor] = baseWin;
-
-    const perSide = {
-      BLUE: state.currentTrajectory.filter(t => t.side === 'BLUE'),
-      RED: state.currentTrajectory.filter(t => t.side === 'RED')
+    const updates = {
+      BLUE: state.learningSides?.has('BLUE') ? (winnerColor === 'BLUE' ? baseWin : baseLose) : 0,
+      RED: state.learningSides?.has('RED') ? (winnerColor === 'RED' ? baseWin : baseLose) : 0
     };
 
     for (const side of ['BLUE', 'RED']){
-      const traj = perSide[side];
+      if (!state.learningSides?.has(side)) continue;
+      const traj = state.episodeTrajectories?.[side] || [];
       if (!traj.length) continue;
-      let G = returns[side];
+
+      let G = updates[side];
       for (let i = traj.length - 1; i >= 0; i--){
         const tr = traj[i];
-        const sKey = tr.s;
-        const aKey = tr.a;
-        const old = getQValue(side, sKey, aKey);
-        const target = G;
-        const updated = old + alpha * (target - old);
-        setQValue(side, sKey, aKey, updated);
-        G = gamma * G;
+        const old = getQValue(side, tr.s, tr.a);
+        const updated = old + alpha * (G - old);
+        setQValue(side, tr.s, tr.a, updated);
+        G *= gamma;
       }
+      state.currentEpisodeReward[side] += updates[side];
     }
 
-    state.currentEpisodeReward.BLUE += returns.BLUE;
-    state.currentEpisodeReward.RED += returns.RED;
     els.blueReturn.textContent = String(Math.round(state.currentEpisodeReward.BLUE));
     els.redReturn.textContent = String(Math.round(state.currentEpisodeReward.RED));
     saveQ('BLUE'); saveQ('RED');
@@ -1158,7 +1166,8 @@
       else if (action.kind === 'rotate') log(`${side}: ${action.label}`, 'good');
       else log(`${side}: ${action.label}`, 'muted');
 
-      await animateLaser(boardBefore, side, res.victim || null);
+      renderBoard(state.currentBoard, [], state.selected, true);
+      await animateLaser(state.currentBoard, side, res.victim || null);
 
       renderBoard(state.currentBoard, res.laserPath || [], state.selected, true);
 
@@ -1192,15 +1201,11 @@
     let action = null;
 
     if (state.activeMode === 'manual'){
-      action = chooseManualAction(board);
-      if (!action){
-        log('No legal manual action found.', 'bad');
-        return;
-      }
       if (state.manualSide !== 'BOTH' && state.manualSide !== turn){
-        log(`Manual side mismatch: it is ${turn}'s turn.`, 'warn');
         return;
       }
+      log('Manual mode is click-driven. Use the board and action buttons.', 'muted');
+      return;
     } else if (state.activeMode === 'human'){
       if (turn === state.humanSide){
         log(`Waiting for the human move on ${turn}.`, 'muted');
@@ -1223,11 +1228,11 @@
     renderBoard(state.currentBoard, [], null, true);
   }
 
-  async function runEpisode(){
+  async function runEpisode(force = false){
     resetEpisodeBoard();
     const maxTurns = 160;
     for (let i = 0; i < maxTurns; i++){
-      if (state.paused || !state.autoTrain) break;
+      if (state.paused || (!force && !state.autoTrain)) break;
       const winner = boardOutcome(state.currentBoard);
       if (winner) break;
       await runOneTurn();
@@ -1267,6 +1272,7 @@
     setMode('selfplay');
     state.autoTrain = true;
     state.humanSide = 'BLUE';
+    setLearningSides(['BLUE', 'RED']);
     els.rewardProfile.value = 'twin';
     resetEpisodeBoard();
     log('Twin self-play started.', 'good');
@@ -1278,6 +1284,7 @@
     state.autoTrain = false;
     state.humanSide = side;
     state.manualSide = side;
+    setLearningSides([side === 'BLUE' ? 'RED' : 'BLUE']);
     els.rewardProfile.value = 'human';
     resetEpisodeBoard();
     log(`Human vs twin started. Human controls ${side}.`, 'good');
@@ -1288,6 +1295,7 @@
     setMode('manual');
     state.autoTrain = false;
     state.manualSide = 'BOTH';
+    setLearningSides([]);
     els.manualSide.value = 'BOTH';
     resetEpisodeBoard();
     log('Manual both-sides mode started.', 'warn');
@@ -1485,6 +1493,7 @@
   els.btnSelfPlay.addEventListener('click', async () => {
     state.paused = false;
     state.autoTrain = true;
+    setLearningSides(['BLUE', 'RED']);
     setMode('selfplay');
     await requestWakeLock();
     autoLoop();
@@ -1499,7 +1508,7 @@
     state.paused = false;
     setMode('idle');
     await requestWakeLock();
-    await runEpisode();
+    await runEpisode(true);
     await releaseWakeLock();
   });
   els.btnAutoTrain.addEventListener('click', async () => {
@@ -1521,6 +1530,7 @@
     state.autoTrain = false;
     state.paused = false;
     state.manualSide = els.manualSide.value;
+    setLearningSides([]);
     setMode('manual');
     resetEpisodeBoard();
     await requestWakeLock();
@@ -1571,6 +1581,7 @@
     state.currentBoard = initialBoard();
     state.selected = null;
     state.targetHint = null;
+    setLearningSides(['BLUE', 'RED']);
     renderBoard(state.currentBoard, [], null, true);
     updatePolicyPreview('BLUE');
     setMode('idle');

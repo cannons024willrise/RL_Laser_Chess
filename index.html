@@ -1282,13 +1282,21 @@
   async function startHuman(side){
     setMode('human');
     state.autoTrain = false;
+    state.paused = false;
     state.humanSide = side;
     state.manualSide = side;
     setLearningSides([side === 'BLUE' ? 'RED' : 'BLUE']);
     els.rewardProfile.value = 'human';
     resetEpisodeBoard();
+    state.selected = null;
+    state.targetHint = null;
     log(`Human vs twin started. Human controls ${side}.`, 'good');
     await requestWakeLock();
+
+    // If the AI owns the opening turn, let it move immediately.
+    if (state.currentBoard && state.currentBoard.turn !== state.humanSide) {
+      queueMicrotask(() => { runOneTurn(); });
+    }
   }
 
   async function startManualBoth(){

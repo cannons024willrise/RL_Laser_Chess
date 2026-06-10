@@ -1365,10 +1365,9 @@
 
   async function onBoardClick(x, y){
     if (!state.currentBoard) return;
-    const board = state.currentBoard;
-    const pieces = getBoardPieces(board);
+    const pieces = getBoardPieces(state.currentBoard);
     const clicked = getPieceAt(pieces, x, y);
-    const turn = board.turn;
+    const turn = state.currentBoard.turn;
 
     if (state.activeMode === 'human' && turn !== state.humanSide){
       log(`It is ${turn}'s turn; the human is ${state.humanSide}.`, 'warn');
@@ -1385,9 +1384,9 @@
         state.targetHint = null;
         els.selectionHint.textContent = `Selected ${clicked.color} ${clicked.pieceType} at ${x},${y}`;
         log(`Selected ${clicked.color} ${clicked.pieceType} at ${x},${y}`, 'muted');
-        renderBoard(board, [], state.selected);
+        renderBoard(state.currentBoard, [], state.selected, false);
       } else {
-        log(`Select one of the ${turn} pieces first.`, 'warn');
+        log(`No piece at ${x},${y}.`, 'warn');
       }
       return;
     }
@@ -1396,7 +1395,7 @@
       state.selected = null;
       state.targetHint = null;
       els.selectionHint.textContent = 'No selection.';
-      renderBoard(board);
+      renderBoard(state.currentBoard, [], null, false);
       return;
     }
 
@@ -1404,11 +1403,11 @@
     if (!selectedPiece){
       state.selected = null;
       state.targetHint = null;
-      renderBoard(board);
+      renderBoard(state.currentBoard, [], null, false);
       return;
     }
 
-    const legalActions = generateActions(board, turn).filter(a => a.from && a.from.x === state.selected.x && a.from.y === state.selected.y);
+    const legalActions = generateActions(state.currentBoard, turn).filter(a => a.from && a.from.x === state.selected.x && a.from.y === state.selected.y);
     const targetAction = legalActions.find(a => (a.kind === 'move' || a.kind === 'swap') && a.to.x === x && a.to.y === y) || null;
 
     if (targetAction){
@@ -1425,7 +1424,7 @@
       state.selected = { x, y };
       state.targetHint = null;
       els.selectionHint.textContent = `Selected ${clicked.color} ${clicked.pieceType} at ${x},${y}`;
-      renderBoard(board, [], state.selected);
+      renderBoard(state.currentBoard, [], state.selected, false);
       return;
     }
 
@@ -1434,19 +1433,23 @@
 
   async function rotateSelected(delta){
     if (!state.selected || !state.currentBoard) return;
+    const turn = state.currentBoard.turn;
+    if (state.activeMode === 'human' && turn !== state.humanSide) return;
+    if (state.activeMode === 'manual' && state.manualSide !== 'BOTH' && turn !== state.manualSide) return;
     const piece = getPieceAt(getBoardPieces(state.currentBoard), state.selected.x, state.selected.y);
     if (!piece) return;
     const action = { kind:'rotate', pieceId:piece.id, delta, label:`rotate ${piece.pieceType} ${delta > 0 ? 'CW' : 'CCW'}` };
-    await performAction(action, 'human');
-    renderBoard(state.currentBoard, [], null, true);
+    await performAction(action);
     await maybeAutoPlayOpponentAfterHumanMove();
   }
 
   async function fireTurn(){
     if (!state.currentBoard) return;
+    const turn = state.currentBoard.turn;
+    if (state.activeMode === 'human' && turn !== state.humanSide) return;
+    if (state.activeMode === 'manual' && state.manualSide !== 'BOTH' && turn !== state.manualSide) return;
     const action = { kind:'fire', label:'fire / end turn' };
-    await performAction(action, 'human');
-    renderBoard(state.currentBoard, [], null, true);
+    await performAction(action);
     await maybeAutoPlayOpponentAfterHumanMove();
   }
 

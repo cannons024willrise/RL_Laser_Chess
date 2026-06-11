@@ -633,6 +633,7 @@
     paused: false,
     episode: 0,
     stepRunning: false,
+    loopRunning: false, // Prevents overlapping training loops
     q: { BLUE: loadQ('BLUE'), RED: loadQ('RED') },
     stats: loadMeta(),
     history: loadHistory(),
@@ -766,10 +767,9 @@
     els.board.innerHTML = '';
     const currentTurn = board.turn || 'BLUE';
 
-    const top = document.createElement('div');
-    top.className = 'matrix-top';
-    top.innerHTML = `<div><span class="statusDot ${state.autoTrain ? 'live' : (state.paused ? 'paused' : 'idle')}"></span><strong style="color:var(--bright)">Turn:</strong> <span style="color:${currentTurn === 'BLUE' ? 'var(--blue)' : 'var(--red)'}">${currentTurn}</span></div><div>${board.status ? board.status : 'Ready'}</div>`;
-    els.board.appendChild(top);
+    // FIX 6: Update DOM elements correctly instead of creating a nested duplicate header
+    els.turnIndicator.className = `statusDot ${state.autoTrain ? 'live' : (state.paused ? 'paused' : 'idle')}`;
+    els.turnText.innerHTML = `<strong style="color:var(--bright)">Turn:</strong> <span style="color:${currentTurn === 'BLUE' ? 'var(--blue)' : 'var(--red)'}">${currentTurn}</span> - ${board.status ? board.status : 'Ready'}`;
 
     for (let y = 7; y >= 0; y--){
       const row = document.createElement('div');
@@ -820,8 +820,16 @@
   }
 
   function saveQ(side){
-    localStorage.setItem(side === 'BLUE' ? STORAGE.blue : STORAGE.red, JSON.stringify(state.q[side]));
-    localStorage.setItem(STORAGE.meta, JSON.stringify(state.stats));
+    // FIX 3: Catch LocalStorage Quota Exceeded silently failing your training
+    try {
+      localStorage.setItem(side === 'BLUE' ? STORAGE.blue : STORAGE.red, JSON.stringify(state.q[side]));
+      localStorage.setItem(STORAGE.meta, JSON.stringify(state.stats));
+    } catch (err) {
+      if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+        pauseAll();
+        log(`Storage limit reached for ${side} Q-table! Download JSON and clear tables to continue.`, 'bad');
+      }
+    }
   }
   function saveBoardState(board){
     try{ localStorage.setItem(STORAGE.board, JSON.stringify(board)); } catch {}
@@ -881,10 +889,18 @@
       if (p.pieceType !== 'KING'){
         const r1 = normalizeRotation((p.rotation || 0) + 1);
         const r2 = normalizeRotation((p.rotation || 0) - 1);
-        if (p.pieceType !== 'LASER' || (p.color === 'BLUE' && (r1 === 0 || r1 === 3) && (r2 === 0 || r2 === 3)) || (p.color === 'RED' && (r1 === 1 || r1 === 2) && (r2 === 1 || r2 === 2))){
-          actions.push({ kind:'rotate', pieceId:p.id, delta: 1, label:`rotate ${p.pieceType} CW` });
-          actions.push({ kind:'rotate', pieceId:p.id, delta: -1, label:`rotate ${p.pieceType} CCW` });
-        }
+        
+        // FIX 1: Allow valid laser rotation by separating conditions properly
+        const canRotateR1 = p.pieceType !== 'LASER' || 
+          (p.color === 'BLUE' && (r1 === 0 || r1 === 3)) || 
+          (p.color === 'RED' && (r1 === 1 || r1 === 2));
+          
+        const canRotateR2 = p.pieceType !== 'LASER' || 
+          (p.color === 'BLUE' && (r2 === 0 || r2 === 3)) || 
+          (p.color === 'RED' && (r2 === 1 || r2 === 2));
+
+        if (canRotateR1) actions.push({ kind:'rotate', pieceId:p.id, delta: 1, label:`rotate ${p.pieceType} CW` });
+        if (canRotateR2) actions.push({ kind:'rotate', pieceId:p.id, delta: -1, label:`rotate ${p.pieceType} CCW` });
       }
     }
     actions.push({ kind:'fire', label:'fire / end turn' });
@@ -920,7 +936,6 @@
       event.rotation = nextRot;
     }
 
-    // laser resolve after any non-fire action too
     const shooter = pieces.find(p => p && p.pieceType === 'LASER' && p.color === board.turn);
     let laserPath = [];
     let victim = null;
@@ -1148,6 +1163,10 @@
   async function performAction(action, origin = 'system'){
     if (!state.currentBoard || state.stepRunning) return;
     const boardBefore = deepClone(state.currentBoard);
+
+    // FIX 5: Save each turn for undoing functionality
+    state.boardHistory.push(deepClone(boardBefore));
+
     const side = boardBefore.turn;
     const profile = els.rewardProfile.value;
 
@@ -1251,14 +1270,18 @@
   }
 
   async function autoLoop(){
-    if (!state.autoTrain) return;
-    if (state.paused) return;
+    // FIX 4: Implement locking to avoid overlapping parallel instances
+    if (!state.autoTrain || state.paused || state.loopRunning) return;
+    state.loopRunning = true;
+    
     await requestWakeLock();
     while (state.autoTrain && !state.paused){
       await runEpisode();
       await sleep(20);
     }
     if (!state.autoTrain) await releaseWakeLock();
+    
+    state.loopRunning = false;
   }
 
   function setMode(mode){
@@ -1372,6 +1395,12 @@
   }
 
   async function onBoardClick(x, y){
+    // FIX 2: Block manual moves while AI self-play is occurring to protect episode trajectory data
+    if (state.activeMode === 'selfplay') {
+      log("Manual intervention disabled during self-play.", "warn");
+      return;
+    }
+
     if (!state.currentBoard) return;
     const pieces = getBoardPieces(state.currentBoard);
     const clicked = getPieceAt(pieces, x, y);
@@ -1440,6 +1469,11 @@
   }
 
   async function rotateSelected(delta){
+    if (state.activeMode === 'selfplay') {
+      log("Manual intervention disabled during self-play.", "warn");
+      return;
+    }
+
     if (!state.selected || !state.currentBoard) return;
     const turn = state.currentBoard.turn;
     if (state.activeMode === 'human' && turn !== state.humanSide) return;
@@ -1452,6 +1486,11 @@
   }
 
   async function fireTurn(){
+    if (state.activeMode === 'selfplay') {
+      log("Manual intervention disabled during self-play.", "warn");
+      return;
+    }
+
     if (!state.currentBoard) return;
     const turn = state.currentBoard.turn;
     if (state.activeMode === 'human' && turn !== state.humanSide) return;
@@ -1462,15 +1501,15 @@
   }
 
   function undoMove(){
-    const last = state.history[state.history.length - 1];
-    if (!last || !last.board){
-      log('No saved match state to undo to.', 'warn');
+    // FIX 5: Use boardHistory array rather than complete episode match history
+    if (!state.boardHistory || state.boardHistory.length === 0){
+      log('No saved turn state to undo to.', 'warn');
       return;
     }
-    state.currentBoard = deepClone(last.board);
+    state.currentBoard = state.boardHistory.pop();
     state.selected = null;
     renderBoard(state.currentBoard, [], null, true);
-    log('Loaded last match snapshot.', 'good');
+    log('Reverted one turn.', 'good');
   }
 
   function handleImport(side){
@@ -1502,12 +1541,7 @@
 
   // Buttons
   els.btnSelfPlay.addEventListener('click', async () => {
-    state.paused = false;
-    state.autoTrain = true;
-    setLearningSides(['BLUE', 'RED']);
-    setMode('selfplay');
-    await requestWakeLock();
-    autoLoop();
+    startSelfPlay();
   });
   els.btnHumanBlue.addEventListener('click', () => startHuman('BLUE'));
   els.btnHumanRed.addEventListener('click', () => startHuman('RED'));
@@ -1526,7 +1560,6 @@
     state.paused = false;
     state.autoTrain = true;
     setMode('selfplay');
-    await requestWakeLock();
     autoLoop();
   });
   els.btnStopAuto.addEventListener('click', () => pauseAll());

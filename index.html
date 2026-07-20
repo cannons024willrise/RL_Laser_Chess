@@ -3,1638 +3,846 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Twin RL Laser Chess Arena</title>
+  <title>Laser Chess RL Training Page</title>
   <style>
     :root{
-      --bg0:#07070a;
-      --bg1:#111116;
-      --bg2:#17171f;
-      --line:#2a2a35;
-      --text:#d7d7e0;
-      --muted:#9a9aaa;
-      --bright:#ffffff;
-      --good:#63ff9b;
-      --warn:#ffd34d;
-      --bad:#ff6b6b;
-      --blue:#35c7ff;
-      --red:#ff4a66;
-      --laser:#ffe24a;
-      --panel:rgba(18,18,25,.94);
-      --shadow:0 14px 40px rgba(0,0,0,.38);
-      --radius:22px;
-      --radius-sm:14px;
+      --bg:#06080b;
+      --panel:#0d1116;
+      --panel2:#111821;
+      --line:rgba(255,255,255,.08);
+      --text:#e8f6ff;
+      --muted:#8fa3b5;
+      --blue:#03e9f4;
+      --red:#f44336;
+      --good:#26d07c;
+      --warn:#ffcc66;
+      --shadow:0 18px 60px rgba(0,0,0,.55);
+      --cell:#0c1017;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top, #1b1b28 0, #0b0b11 36%, #050507 100%);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      overflow-x:hidden;
-    }
-    button,select,input{
-      font:inherit;
-    }
-    .shell{
-      min-height:100%;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-      padding:18px;
-    }
-    .hero{
-      display:grid;
-      grid-template-columns: 1.7fr 1fr;
-      gap:14px;
-      align-items:stretch;
-    }
-    .card{
-      background:linear-gradient(180deg, rgba(23,23,33,.98), rgba(13,13,19,.98));
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .heroMain{
-      padding:20px;
-    }
-    .title{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      margin:0 0 8px 0;
-      font-size:30px;
-      line-height:1.05;
-      color:var(--bright);
-      letter-spacing:.2px;
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:12px;
-      background:rgba(101, 162, 255, .12);
-      color:#b9d5ff;
-      border:1px solid rgba(101,162,255,.22);
-    }
-    .subtitle{
-      color:var(--muted);
-      margin:0;
-      max-width:72ch;
-      line-height:1.5;
-      font-size:14px;
-    }
-    .heroAside{
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-    .statGrid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:10px;
-    }
-    .stat{
-      border:1px solid rgba(255,255,255,.07);
-      border-radius:18px;
-      padding:12px;
-      background:rgba(255,255,255,.025);
-    }
-    .statLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
-    .statValue{font-size:20px;color:var(--bright);margin-top:6px;font-weight:700}
-    .controls{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
-    }
-    .btn{
-      border:none;
-      border-radius:14px;
-      padding:11px 14px;
-      cursor:pointer;
-      transition:.18s ease;
-      color:var(--bright);
-      background:linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.08);
-    }
-    .btn:hover{transform:translateY(-1px); border-color:rgba(255,255,255,.18)}
-    .btn.primary{background:linear-gradient(180deg, rgba(53,199,255,.28), rgba(53,199,255,.12)); border-color:rgba(53,199,255,.3)}
-    .btn.good{background:linear-gradient(180deg, rgba(99,255,155,.22), rgba(99,255,155,.08)); border-color:rgba(99,255,155,.28)}
-    .btn.warn{background:linear-gradient(180deg, rgba(255,211,77,.24), rgba(255,211,77,.08)); border-color:rgba(255,211,77,.26)}
-    .btn.bad{background:linear-gradient(180deg, rgba(255,107,107,.22), rgba(255,107,107,.08)); border-color:rgba(255,107,107,.28)}
-    .btn:disabled{opacity:.45; cursor:not-allowed; transform:none}
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      min-width:160px;
-    }
-    .field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
-    .field input,.field select{
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      padding:10px 12px;
-      outline:none;
-    }
-    .layout{
-      display:grid;
-      grid-template-columns: 1.35fr .95fr;
-      gap:14px;
-      align-items:start;
-      flex:1;
-      min-height:0;
-    }
-    .boardCard{
-      padding:14px;
-      overflow:hidden;
-    }
-    .panel{
-      padding:14px;
-      display:grid;
-      gap:12px;
-    }
-    .tabs{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .tab{
-      padding:9px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.07);
-      background:rgba(255,255,255,.03);
-      cursor:pointer;
-      color:var(--muted);
-    }
-    .tab.active{
-      background:rgba(53,199,255,.16);
-      color:var(--bright);
-      border-color:rgba(53,199,255,.28);
-    }
-    .section{
-      display:none;
-      gap:12px;
-    }
-    .section.active{display:grid}
-    .subcard{
-      border:1px solid rgba(255,255,255,.07);
-      border-radius:18px;
-      background:rgba(255,255,255,.02);
-      padding:12px;
-    }
-    .legend{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-      font-size:13px;
-      line-height:1.45;
-      color:var(--text);
-    }
-    .legend strong{color:var(--bright)}
-    .boardWrap{
-      display:grid;
-      grid-template-columns: auto 1fr;
-      gap:12px;
-      align-items:start;
-    }
-    .boardInfo{
-      display:grid;
-      gap:10px;
-      min-width:260px;
-    }
-    .matrix-container{
-      display:inline-block;
-      padding:14px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(17,17,22,.98), rgba(10,10,14,.98));
-      border-radius:18px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-    }
-    .matrix-top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      margin-bottom:10px;
-      padding-bottom:8px;
-      border-bottom:1px dashed rgba(255,255,255,.13);
-      font-size:14px;
-    }
-    .gridRow{display:flex}
-    .cell{
-      width:48px;
-      height:48px;
-      border:1px solid rgba(255,255,255,.07);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      user-select:none;
-      position:relative;
-      cursor:pointer;
-      font-size:26px;
-      line-height:1;
-      transition: background .12s ease, transform .12s ease;
-    }
-    .cell:hover{background:rgba(255,255,255,.03)}
-    .reserved-blue{background:rgba(53,199,255,.11)}
-    .reserved-red{background:rgba(255,74,102,.11)}
-    .selected{outline:2px solid rgba(255,255,255,.8); outline-offset:-2px; z-index:1}
-    .target{box-shadow: inset 0 0 0 2px rgba(255,211,77,.75)}
-    .cursor{box-shadow: inset 0 0 0 2px rgba(255,255,255,.35)}
-    .piece-red{color:var(--red)}
-    .piece-blue{color:var(--blue)}
-    .laser-path{color:var(--laser)}
-    .log{
-      display:grid;
-      gap:8px;
-      max-height:320px;
-      overflow:auto;
-      padding-right:4px;
-    }
-    .line{
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:14px;
-      padding:10px 12px;
-      background:rgba(255,255,255,.02);
-      font-size:13px;
-      line-height:1.45;
-      white-space:pre-wrap;
-    }
-    .line.good{border-color:rgba(99,255,155,.18); color:#c9ffe0}
-    .line.bad{border-color:rgba(255,107,107,.18); color:#ffd0d0}
-    .line.muted{color:var(--muted)}
-    .line.warn{border-color:rgba(255,211,77,.16); color:#ffeeb6}
-    .kpiList{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-    .kpi{
-      padding:12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.06);
-    }
-    .kpi .name{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
-    .kpi .val{margin-top:6px;font-size:18px;font-weight:700;color:var(--bright)}
-    .mini{
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.45;
-    }
-    .inlineActions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .hint{
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.5;
-    }
-    .statusDot{
-      width:10px;height:10px;border-radius:999px;background:#666;display:inline-block;margin-right:8px;vertical-align:middle;
-    }
-    .statusDot.live{background:var(--good); box-shadow:0 0 0 6px rgba(99,255,155,.08)}
-    .statusDot.paused{background:var(--warn)}
-    .statusDot.idle{background:#666}
-    .footer{
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.5;
-      padding:0 6px 4px;
-    }
-    @media (max-width: 1200px){
-      .hero,.layout{grid-template-columns:1fr}
-      .boardWrap{grid-template-columns:1fr}
-      .boardInfo{min-width:0}
-    }
-    @media (max-width: 720px){
-      .cell{width:36px;height:36px;font-size:20px}
-      .title{font-size:24px}
-      .statGrid,.legend,.kpiList{grid-template-columns:1fr}
+    html,body{height:100%;margin:0;background:radial-gradient(circle at top,#111827 0,#06080b 45%,#020304 100%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,sans-serif;overflow:hidden}
+    .app{height:100%;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(340px,.7fr);gap:14px;padding:14px}
+    .boardPanel,.sidePanel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+    .boardWrap{height:100%;display:flex;align-items:center;justify-content:center;padding:12px}
+    .boardShell{width:100%;height:100%;background:linear-gradient(180deg,rgba(0,0,0,.46),rgba(0,0,0,.25));border:1px solid rgba(255,255,255,.06);border-radius:18px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+    svg{width:100%;height:100%;display:block;touch-action:none}
+    .sidePanel{display:flex;flex-direction:column}
+    .panelHead{padding:14px 14px 10px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.2)}
+    .title{margin:0;font-size:18px;letter-spacing:.12em;text-transform:uppercase}
+    .subtitle{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.35}
+    .section{padding:14px;border-bottom:1px solid var(--line)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .metric{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:10px}
+    .metric .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+    .metric .v{font-size:18px;font-weight:800;margin-top:4px}
+    .metric .s{font-size:11px;color:var(--muted);margin-top:2px}
+    .controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    button,input,select{font:inherit}
+    button{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);padding:10px 12px;border-radius:12px;cursor:pointer;transition:.15s ease;letter-spacing:.06em;text-transform:uppercase;font-size:12px}
+    button:hover{transform:translateY(-1px);border-color:rgba(3,233,244,.35);box-shadow:0 10px 18px rgba(0,0,0,.18)}
+    button.primary{background:linear-gradient(180deg,rgba(3,233,244,.16),rgba(3,233,244,.07));color:var(--blue);border-color:rgba(3,233,244,.35)}
+    button.danger{background:linear-gradient(180deg,rgba(244,67,54,.15),rgba(244,67,54,.06));color:#ffb0a8;border-color:rgba(244,67,54,.3)}
+    .sliders{display:grid;gap:10px}
+    .sliderRow{display:grid;grid-template-columns:110px 1fr 68px;align-items:center;gap:10px}
+    .sliderRow label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    input[type=range]{width:100%}
+    .codeBox{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#cfe7ff;max-height:180px;overflow:auto;white-space:pre-wrap;line-height:1.35}
+    .log{height:100%;min-height:0;display:flex;flex-direction:column}
+    .logHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .logList{flex:1;min-height:0;overflow:auto;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:14px;padding:10px;font-size:12px;line-height:1.45}
+    .tag{display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:999px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--muted)}
+    .tag.blue{color:var(--blue);border-color:rgba(3,233,244,.3)}
+    .tag.red{color:#ff9d95;border-color:rgba(244,67,54,.3)}
+    .tag.good{color:var(--good);border-color:rgba(38,208,124,.3)}
+    .tag.warn{color:var(--warn);border-color:rgba(255,204,102,.3)}
+    .small{font-size:11px;color:var(--muted)}
+    .footerRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    @media (max-width: 980px){
+      .app{grid-template-columns:1fr;grid-template-rows:minmax(55vh,1fr) minmax(380px,.8fr)}
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="hero">
-      <div class="card heroMain">
-        <div class="title">Twin RL Laser Chess Arena <span class="badge">Q-table self-play + manual arena</span></div>
-        <p class="subtitle">
-          Two separate RL agents train from the same match engine, each with its own Q-table, reward ledger, and export file.
-          The original L-mode board logic and laser visuals are preserved here, then wrapped in a test-ready single-page interface.
-        </p>
+<div class="app">
+  <section class="boardPanel">
+    <div class="boardWrap">
+      <div class="boardShell">
+        <svg id="board" viewBox="0 0 1000 800" aria-label="Laser Chess training board"></svg>
       </div>
-      <div class="card heroAside">
-        <div class="statGrid">
-          <div class="stat"><div class="statLabel">Mode</div><div class="statValue" id="modeLabel">Idle</div></div>
-          <div class="stat"><div class="statLabel">Episode</div><div class="statValue" id="episodeLabel">0</div></div>
-          <div class="stat"><div class="statLabel">Wake Lock</div><div class="statValue" id="wakeLabel">Off</div></div>
-        </div>
-        <div class="controls">
-          <button class="btn primary" id="btnSelfPlay">Start Twin Self-Play</button>
-          <button class="btn good" id="btnHumanBlue">Human vs Twin (Human Blue)</button>
-          <button class="btn good" id="btnHumanRed">Human vs Twin (Human Red)</button>
-          <button class="btn warn" id="btnManualBoth">Manual Match Both</button>
-          <button class="btn" id="btnPause">Pause</button>
-          <button class="btn bad" id="btnReset">Reset Board</button>
-        </div>
-        <div class="controls">
-          <div class="field" style="min-width:120px">
-            <label>Reward profile</label>
-            <select id="rewardProfile">
-              <option value="twin">Twin play ±1000</option>
-              <option value="human">Human play ±10000</option>
-            </select>
-          </div>
-          <div class="field" style="min-width:120px">
-            <label>Discount γ</label>
-            <input id="gammaInput" type="number" min="0.01" max="0.999" step="0.001" value="0.965" />
-          </div>
-          <div class="field" style="min-width:120px">
-            <label>Learning α</label>
-            <input id="alphaInput" type="number" min="0.001" max="1" step="0.001" value="0.12" />
-          </div>
-          <div class="field" style="min-width:120px">
-            <label>Epsilon</label>
-            <input id="epsilonInput" type="number" min="0" max="1" step="0.01" value="0.15" />
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="layout">
-      <div class="card boardCard">
-        <div class="boardWrap">
-          <div class="boardInfo">
-            <div class="subcard">
-              <div class="legend">
-                <div><strong>Goal:</strong> destroy the opponent king with laser fire.</div>
-                <div><strong>Turn flow:</strong> move / rotate / fire → laser resolves → turn flips.</div>
-                <div><strong>Blue reserved:</strong> top-right and lane anchors stay shaded.</div>
-                <div><strong>Red reserved:</strong> top-left and lane anchors stay shaded.</div>
-              </div>
-            </div>
-            <div class="subcard">
-              <div class="kpiList">
-                <div class="kpi"><div class="name">Blue Q entries</div><div class="val" id="blueQCount">0</div></div>
-                <div class="kpi"><div class="name">Red Q entries</div><div class="val" id="redQCount">0</div></div>
-                <div class="kpi"><div class="name">Blue win rate</div><div class="val" id="blueWinRate">0%</div></div>
-                <div class="kpi"><div class="name">Red win rate</div><div class="val" id="redWinRate">0%</div></div>
-              </div>
-            </div>
-            <div class="subcard">
-              <div class="inlineActions">
-                <button class="btn" id="btnBlueJson">Download Blue JSON</button>
-                <button class="btn" id="btnRedJson">Download Red JSON</button>
-                <button class="btn" id="btnMatchJson">Download Match JSON</button>
-                <button class="btn" id="btnClearTables">Clear Q-tables</button>
-              </div>
-              <div class="hint" style="margin-top:8px">
-                Wake Lock is requested while training runs, and the page keeps painting so the browser stays active on supported devices.
-              </div>
-            </div>
-          </div>
-          <div>
-            <div class="matrix-container">
-              <div class="matrix-top">
-                <div><span id="turnIndicator" class="statusDot idle"></span><span id="turnText">Not running</span></div>
-                <div id="phaseText">Phase: idle</div>
-              </div>
-              <div id="board"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card panel">
-        <div class="tabs">
-          <button class="tab active" data-tab="train">Training</button>
-          <button class="tab" data-tab="manual">Manual</button>
-          <button class="tab" data-tab="policy">Policies</button>
-          <button class="tab" data-tab="log">Log</button>
-        </div>
-
-        <div class="section active" id="tab-train">
-          <div class="subcard">
-            <div class="controls" style="margin-bottom:10px">
-              <button class="btn primary" id="btnStepEpisode">Run 1 Episode</button>
-              <button class="btn good" id="btnAutoTrain">Auto Train</button>
-              <button class="btn" id="btnStopAuto">Stop Auto</button>
-              <button class="btn" id="btnStepTurn">Step One Turn</button>
-            </div>
-            <div class="mini">
-              Self-play uses two separate Q-tables. The terminal reward is propagated backward across the entire match with discount γ.
-              Twin-play uses ±1000 terminal reward. Human-play mode uses ±10000 terminal reward for the learning side.
-            </div>
-          </div>
-          <div class="subcard">
-            <div class="kpiList">
-              <div class="kpi"><div class="name">Last episode length</div><div class="val" id="episodeLen">0</div></div>
-              <div class="kpi"><div class="name">Last winner</div><div class="val" id="lastWinner">—</div></div>
-              <div class="kpi"><div class="name">Blue return</div><div class="val" id="blueReturn">0</div></div>
-              <div class="kpi"><div class="name">Red return</div><div class="val" id="redReturn">0</div></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="section" id="tab-manual">
-          <div class="subcard">
-            <div class="controls" style="margin-bottom:10px">
-              <div class="field" style="min-width:140px">
-                <label>Manual side</label>
-                <select id="manualSide">
-                  <option value="BLUE">Blue side</option>
-                  <option value="RED">Red side</option>
-                  <option value="BOTH">Both sides</option>
-                </select>
-              </div>
-              <button class="btn primary" id="btnManualPlay">Start Manual</button>
-              <button class="btn" id="btnCancelManual">Stop Manual</button>
-            </div>
-            <div class="mini">
-              Click a piece, then click a destination to move. Use rotate buttons for the selected piece. Fire resolves the current side’s beam immediately.
-            </div>
-          </div>
-          <div class="subcard">
-            <div class="inlineActions">
-              <button class="btn" id="btnRotateCCW">Rotate ⟲</button>
-              <button class="btn" id="btnRotateCW">Rotate ⟳</button>
-              <button class="btn warn" id="btnFire">Fire / End Turn</button>
-              <button class="btn" id="btnUndo">Undo Move</button>
-            </div>
-            <div class="hint" style="margin-top:8px" id="selectionHint">No selection.</div>
-          </div>
-        </div>
-
-        <div class="section" id="tab-policy">
-          <div class="subcard">
-            <div class="mini">
-              Each agent stores a separate table in localStorage under its own namespace. Use the download buttons to export JSON.
-              The exported payload includes hyperparameters, stats, and the complete table map.
-            </div>
-          </div>
-          <div class="subcard">
-            <div class="controls">
-              <button class="btn" id="btnImportBlue">Import Blue JSON</button>
-              <button class="btn" id="btnImportRed">Import Red JSON</button>
-              <input type="file" id="importFile" accept="application/json" style="display:none" />
-            </div>
-          </div>
-          <div class="subcard">
-            <div class="mini" id="policyPreview">No policy selected.</div>
-          </div>
-        </div>
-
-        <div class="section" id="tab-log">
-          <div class="log" id="log"></div>
-        </div>
-      </div>
-    </section>
-
-    <div class="footer">
-      This page runs fully in-browser. The wake-lock API is used when available, but the operating system can still override sleep behavior.
     </div>
-  </div>
+  </section>
+
+  <aside class="sidePanel">
+    <div class="panelHead">
+      <h1 class="title">Terminal-Only RL</h1>
+      <p class="subtitle">Same Laser Chess state schema, same legal move rules, same turn flow. Rewards only at match end. Because intermediate rewards are the usual human shortcut that ruins half the homework.</p>
+    </div>
+
+    <div class="section">
+      <div class="row">
+        <div class="metric"><div class="k">Episodes</div><div class="v" id="episodes">0</div><div class="s">Self-play games</div></div>
+        <div class="metric"><div class="k">Win rate</div><div class="v" id="winRate">0%</div><div class="s">Blue perspective</div></div>
+        <div class="metric"><div class="k">Avg return</div><div class="v" id="avgReturn">0.00</div><div class="s">Terminal reward only</div></div>
+        <div class="metric"><div class="k">Entropy</div><div class="v" id="entropy">0.00</div><div class="s">Policy spread</div></div>
+      </div>
+      <div class="footerRow">
+        <span class="tag blue" id="turnTag">BLUE</span>
+        <span class="tag" id="phaseTag">idle</span>
+        <span class="tag good" id="modelTag">untrained</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="controls">
+        <button class="primary" id="train1">Train 1</button>
+        <button class="primary" id="train100">Train 100</button>
+        <button id="play1k">Play 1 game</button>
+        <button id="pauseBtn">Pause</button>
+        <button class="danger" id="resetBtn">Reset model</button>
+        <button id="saveBtn">Save model</button>
+        <button id="loadBtn">Load model</button>
+        <button id="exportBtn">Export weights</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sliders">
+        <div class="sliderRow"><label for="lr">LR</label><input id="lr" type="range" min="0.0001" max="0.01" step="0.0001" value="0.0012"><div class="small" id="lrVal">0.0012</div></div>
+        <div class="sliderRow"><label for="temp">Temp</label><input id="temp" type="range" min="0.2" max="2.0" step="0.05" value="0.7"><div class="small" id="tempVal">0.70</div></div>
+        <div class="sliderRow"><label for="ent">Entropy</label><input id="ent" type="range" min="0" max="0.05" step="0.001" value="0.01"><div class="small" id="entVal">0.010</div></div>
+      </div>
+    </div>
+
+    <div class="section log">
+      <div class="logHead">
+        <strong>Training log</strong>
+        <span class="small">Canonical state encoding: same object shape as the game</span>
+      </div>
+      <div class="codeBox" id="encodingBox"></div>
+      <div class="logList" id="log"></div>
+    </div>
+  </aside>
+</div>
 
 <script>
 (() => {
   'use strict';
 
-  const DIRS = [
-    { dx: 0, dy: 1 },
-    { dx: 1, dy: 0 },
-    { dx: 0, dy: -1 },
-    { dx: -1, dy: 0 }
-  ];
-
-  const ROTATION_TABLE = {
-    KING: { 0: '◈', 1: '◈', 2: '◈', 3: '◈' },
-    LASER: { 0: '⫝', 1: '⟜', 2: 'Ͳ', 3: 'Ð' },
-    SWITCH: { 0: '⟋', 1: '⟍', 2: '⟋', 3: '⟍' },
-    DEFENDER: { 0: '⬓', 1: '◧', 2: '⬒', 3: '◨' },
-    DEFLECTOR: { 0: '◤', 1: '◥', 2: '◢', 3: '◣' }
-  };
+  // --- Game constants copied into the same state schema / rule space ---
+  const W = 10, H = 8, CELL = 100;
+  const PIECE_MAP = { KING: 'king', DEFENDER: 'defender', DEFLECTOR: 'deflector', SWITCH: 'switch', LASER: 'laser' };
+  const RES_BLUE = [{x:9,y:0},{x:9,y:1},{x:9,y:2},{x:9,y:3},{x:9,y:4},{x:9,y:5},{x:9,y:6},{x:9,y:7},{x:1,y:0},{x:1,y:7}];
+  const RES_RED  = [{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3},{x:0,y:4},{x:0,y:5},{x:0,y:6},{x:0,y:7},{x:8,y:0},{x:8,y:7}];
+  const DIRS = [ {dx:0,dy:1}, {dx:-1,dy:0}, {dx:0,dy:-1}, {dx:1,dy:0} ]; // 0=S,1=W,2=N,3=E
+  const VERSION = 'laser_chess_terminal_rl_v1';
 
   const INTERACTION_MAP = {
-    DEFLECTOR: {
-      0: { 0: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 2 }, 1: { action: 'destroy' }, 2: { action: 'destroy' } },
-      1: { 0: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 2 }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-      2: { 2: { action: 'reflect', nextDir: 3 }, 1: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 3: { action: 'destroy' } },
-      3: { 2: { action: 'reflect', nextDir: 1 }, 3: { action: 'reflect', nextDir: 0 }, 0: { action: 'destroy' }, 1: { action: 'destroy' } }
-    },
-    SWITCH: {
-      0: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
-      1: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } },
-      2: { 0: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 2 } },
-      3: { 0: { action: 'reflect', nextDir: 3 }, 3: { action: 'reflect', nextDir: 0 }, 2: { action: 'reflect', nextDir: 1 }, 1: { action: 'reflect', nextDir: 2 } }
+    KING: {
+      0: { 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} },
+      1: { 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} },
+      2: { 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} },
+      3: { 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} }
     },
     DEFENDER: {
-      0: { 0: { action: 'block' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-      1: { 1: { action: 'block' }, 0: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-      2: { 2: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 3: { action: 'destroy' } },
-      3: { 3: { action: 'block' }, 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' } }
+      0:{ 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:false}, 3:{reflect:null,isDestroyed:true} },
+      1:{ 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:false} },
+      2:{ 0:{reflect:null,isDestroyed:false}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} },
+      3:{ 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:false}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} }
     },
-    KING: {
-      0: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-      1: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-      2: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } },
-      3: { 0: { action: 'destroy' }, 1: { action: 'destroy' }, 2: { action: 'destroy' }, 3: { action: 'destroy' } }
+    DEFLECTOR: {
+      0:{ 0:{reflect:3,isDestroyed:false}, 1:{reflect:2,isDestroyed:false}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:null,isDestroyed:true} },
+      1:{ 0:{reflect:null,isDestroyed:true}, 1:{reflect:0,isDestroyed:false}, 2:{reflect:3,isDestroyed:false}, 3:{reflect:null,isDestroyed:true} },
+      2:{ 0:{reflect:null,isDestroyed:true}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:1,isDestroyed:false}, 3:{reflect:0,isDestroyed:false} },
+      3:{ 0:{reflect:1,isDestroyed:false}, 1:{reflect:null,isDestroyed:true}, 2:{reflect:null,isDestroyed:true}, 3:{reflect:2,isDestroyed:false} }
+    },
+    SWITCH: {
+      0:{ 0:{reflect:1,isDestroyed:false}, 1:{reflect:0,isDestroyed:false}, 2:{reflect:3,isDestroyed:false}, 3:{reflect:2,isDestroyed:false} },
+      1:{ 0:{reflect:3,isDestroyed:false}, 1:{reflect:2,isDestroyed:false}, 2:{reflect:1,isDestroyed:false}, 3:{reflect:0,isDestroyed:false} },
+      2:{ 0:{reflect:1,isDestroyed:false}, 1:{reflect:0,isDestroyed:false}, 2:{reflect:3,isDestroyed:false}, 3:{reflect:2,isDestroyed:false} },
+      3:{ 0:{reflect:3,isDestroyed:false}, 1:{reflect:2,isDestroyed:false}, 2:{reflect:1,isDestroyed:false}, 3:{reflect:0,isDestroyed:false} }
     },
     LASER: {
-      0: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-      1: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-      2: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } },
-      3: { 0: { action: 'block' }, 1: { action: 'block' }, 2: { action: 'block' }, 3: { action: 'block' } }
+      0:{ 0:{reflect:null,isDestroyed:false},1:{reflect:null,isDestroyed:false},2:{reflect:null,isDestroyed:false},3:{reflect:null,isDestroyed:false} },
+      1:{ 0:{reflect:null,isDestroyed:false},1:{reflect:null,isDestroyed:false},2:{reflect:null,isDestroyed:false},3:{reflect:null,isDestroyed:false} },
+      2:{ 0:{reflect:null,isDestroyed:false},1:{reflect:null,isDestroyed:false},2:{reflect:null,isDestroyed:false},3:{reflect:null,isDestroyed:false} },
+      3:{ 0:{reflect:null,isDestroyed:false},1:{reflect:null,isDestroyed:false},2:{reflect:null,isDestroyed:false},3:{reflect:null,isDestroyed:false} }
     }
   };
 
-  const BLUE_RESERVED = [
-    {x:9,y:0},{x:9,y:1},{x:9,y:2},{x:9,y:3},{x:9,y:4},{x:9,y:5},{x:9,y:6},{x:9,y:7},{x:1,y:0},{x:1,y:7}
-  ];
-  const RED_RESERVED = [
-    {x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3},{x:0,y:4},{x:0,y:5},{x:0,y:6},{x:0,y:7},{x:8,y:0},{x:8,y:7}
-  ];
+  const START_STATE = () => ({
+    turn:'BLUE',
+    moveNumber:1,
+    winner:null,
+    lastLaserPath:[],
+    lastLaserColor:null,
+    pieces:[
+      {id:'pmpfnkxpm1', pieceType:'KING', color:'BLUE', rotation:0, x:4, y:0},
+      {id:'pmpfnl4j03', pieceType:'KING', color:'RED', rotation:0, x:5, y:7},
+      {id:'pmpfqugdq4', pieceType:'DEFENDER', color:'RED', rotation:0, x:4, y:7},
+      {id:'pmpfquhvx5', pieceType:'DEFENDER', color:'RED', rotation:2, x:6, y:7},
+      {id:'pmpfqunnp6', pieceType:'DEFENDER', color:'BLUE', rotation:2, x:5, y:0},
+      {id:'pmpfquoqi7', pieceType:'DEFENDER', color:'BLUE', rotation:2, x:3, y:0},
+      {id:'pmpfqvc388', pieceType:'SWITCH', color:'BLUE', rotation:0, x:5, y:3},
+      {id:'pmpfqvfrb9', pieceType:'SWITCH', color:'BLUE', rotation:1, x:4, y:3},
+      {id:'pmpfqvl06a', pieceType:'SWITCH', color:'RED', rotation:0, x:4, y:4},
+      {id:'pmpfqvre4b', pieceType:'SWITCH', color:'RED', rotation:1, x:5, y:4},
+      {id:'pmpfqwdqec', pieceType:'LASER', color:'RED', rotation:2, x:0, y:7},
+      {id:'pmpfqy5dve', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:2, y:0},
+      {id:'pmpfqya0pf', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:2, y:3},
+      {id:'pmpfqyd1rg', pieceType:'DEFLECTOR', color:'BLUE', rotation:1, x:2, y:4},
+      {id:'pmpfqz0jlj', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:0, y:3},
+      {id:'pmpfqz7fpk', pieceType:'DEFLECTOR', color:'RED', rotation:3, x:0, y:4},
+      {id:'pmpfqzj2ul', pieceType:'DEFLECTOR', color:'BLUE', rotation:3, x:7, y:1},
+      {id:'pmpfr0e5km', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:6, y:2},
+      {id:'pmpfr0t7zn', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:7, y:4},
+      {id:'pmpfr0ww1o', pieceType:'DEFLECTOR', color:'RED', rotation:3, x:7, y:3},
+      {id:'pmpfr18esp', pieceType:'DEFLECTOR', color:'BLUE', rotation:1, x:9, y:3},
+      {id:'pmpfr1bjtq', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:9, y:4},
+      {id:'pmpfr2ek5s', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:3, y:5},
+      {id:'pmpfr2sl8u', pieceType:'DEFLECTOR', color:'RED', rotation:1, x:2, y:6},
+      {id:'pmpfr337lv', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:7, y:7},
+      {id:'pmpfr69imw', pieceType:'LASER', color:'BLUE', rotation:0, x:9, y:0}
+    ]
+  });
 
-  const STORAGE = {
-    blue: 'twin_rl_q_blue_v1',
-    red: 'twin_rl_q_red_v1',
-    meta: 'twin_rl_meta_v1',
-    board: 'twin_rl_board_v1',
-    history: 'twin_rl_match_history_v1'
-  };
+  const state = START_STATE();
+  let selectedId = null;
+  let training = false;
+  let episodes = 0;
+  let blueWins = 0;
+  let returnSum = 0;
+  let entropySum = 0;
+  let actionCount = 0;
+  let model = null;
+  let lastEncodingPreview = '';
 
-  const els = {
+  const ui = {
     board: document.getElementById('board'),
+    episodes: document.getElementById('episodes'),
+    winRate: document.getElementById('winRate'),
+    avgReturn: document.getElementById('avgReturn'),
+    entropy: document.getElementById('entropy'),
+    turnTag: document.getElementById('turnTag'),
+    phaseTag: document.getElementById('phaseTag'),
+    modelTag: document.getElementById('modelTag'),
     log: document.getElementById('log'),
-    turnText: document.getElementById('turnText'),
-    phaseText: document.getElementById('phaseText'),
-    turnIndicator: document.getElementById('turnIndicator'),
-    modeLabel: document.getElementById('modeLabel'),
-    episodeLabel: document.getElementById('episodeLabel'),
-    wakeLabel: document.getElementById('wakeLabel'),
-    blueQCount: document.getElementById('blueQCount'),
-    redQCount: document.getElementById('redQCount'),
-    blueWinRate: document.getElementById('blueWinRate'),
-    redWinRate: document.getElementById('redWinRate'),
-    episodeLen: document.getElementById('episodeLen'),
-    lastWinner: document.getElementById('lastWinner'),
-    blueReturn: document.getElementById('blueReturn'),
-    redReturn: document.getElementById('redReturn'),
-    selectionHint: document.getElementById('selectionHint'),
-    policyPreview: document.getElementById('policyPreview'),
-    gammaInput: document.getElementById('gammaInput'),
-    alphaInput: document.getElementById('alphaInput'),
-    epsilonInput: document.getElementById('epsilonInput'),
-    rewardProfile: document.getElementById('rewardProfile'),
-    manualSide: document.getElementById('manualSide'),
-    importFile: document.getElementById('importFile'),
-    btnSelfPlay: document.getElementById('btnSelfPlay'),
-    btnHumanBlue: document.getElementById('btnHumanBlue'),
-    btnHumanRed: document.getElementById('btnHumanRed'),
-    btnManualBoth: document.getElementById('btnManualBoth'),
-    btnPause: document.getElementById('btnPause'),
-    btnReset: document.getElementById('btnReset'),
-    btnStepEpisode: document.getElementById('btnStepEpisode'),
-    btnAutoTrain: document.getElementById('btnAutoTrain'),
-    btnStopAuto: document.getElementById('btnStopAuto'),
-    btnStepTurn: document.getElementById('btnStepTurn'),
-    btnManualPlay: document.getElementById('btnManualPlay'),
-    btnCancelManual: document.getElementById('btnCancelManual'),
-    btnRotateCCW: document.getElementById('btnRotateCCW'),
-    btnRotateCW: document.getElementById('btnRotateCW'),
-    btnFire: document.getElementById('btnFire'),
-    btnUndo: document.getElementById('btnUndo'),
-    btnBlueJson: document.getElementById('btnBlueJson'),
-    btnRedJson: document.getElementById('btnRedJson'),
-    btnMatchJson: document.getElementById('btnMatchJson'),
-    btnClearTables: document.getElementById('btnClearTables'),
-    btnImportBlue: document.getElementById('btnImportBlue'),
-    btnImportRed: document.getElementById('btnImportRed'),
+    encodingBox: document.getElementById('encodingBox'),
+    train1: document.getElementById('train1'),
+    train100: document.getElementById('train100'),
+    play1k: document.getElementById('play1k'),
+    pauseBtn: document.getElementById('pauseBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    saveBtn: document.getElementById('saveBtn'),
+    loadBtn: document.getElementById('loadBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    lr: document.getElementById('lr'),
+    temp: document.getElementById('temp'),
+    ent: document.getElementById('ent'),
+    lrVal: document.getElementById('lrVal'),
+    tempVal: document.getElementById('tempVal'),
+    entVal: document.getElementById('entVal')
   };
 
-  const state = {
-    currentBoard: null,
-    selected: null,
-    targetHint: null,
-    manualMode: false,
-    manualSide: 'BLUE',
-    activeMode: 'idle', // idle | selfplay | human | manual
-    humanSide: 'BLUE',
-    autoTrain: false,
-    paused: false,
-    episode: 0,
-    stepRunning: false,
-    loopRunning: false, // Prevents overlapping training loops
-    q: { BLUE: loadQ('BLUE'), RED: loadQ('RED') },
-    stats: loadMeta(),
-    history: loadHistory(),
-    trainingWakeLock: null,
-    currentTrajectory: [],
-    episodeTrajectories: { BLUE: [], RED: [] },
-    learningSides: new Set(['BLUE', 'RED']),
-    currentEpisodeReward: { BLUE: 0, RED: 0 },
-    pendingAfterTurn: null,
-    boardHistory: [],
-    manualSelectionInfo: '',
-    renderQueued: false
-  };
+  function clone(v){ return JSON.parse(JSON.stringify(v)); }
+  function normalizeRotation(r){ return ((r % 4) + 4) % 4; }
+  function enemyColor(c){ return c === 'BLUE' ? 'RED' : 'BLUE'; }
+  function inBounds(x,y){ return x >= 0 && x < W && y >= 0 && y < H; }
+  function isReservedSquare(x,y,color){ return (color === 'BLUE' ? RES_BLUE : RES_RED).some(s => s.x === x && s.y === y); }
+  function pieceAt(x,y,pieces=state.pieces){ return pieces.find(p => p.x === x && p.y === y) || null; }
+  function pieceImageKey(piece){ return `${piece.color}_${piece.pieceType}_${piece.rotation}`; }
+  function labelFor(piece){ return piece.pieceType[0]; }
 
-  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-  function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
-  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
-  function rand(){ return Math.random(); }
-  function choice(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
-  function normalizeRotation(rot){ return ((Number(rot) || 0) % 4 + 4) % 4; }
-  function inBounds(x, y){ return x >= 0 && x <= 9 && y >= 0 && y <= 7; }
-  function getBoardPieces(board){ return Array.isArray(board.pieces) ? board.pieces : []; }
-  function getPieceAt(pieces, x, y){ return pieces.find(p => p && p.x === x && p.y === y) || null; }
-  function isReservedSquare(x, y, color){
-    const list = color === 'BLUE' ? RED_RESERVED : BLUE_RESERVED;
-    return list.some(s => s.x === x && s.y === y);
-  }
-  function getReservedClass(x, y){
-    if (BLUE_RESERVED.some(s => s.x === x && s.y === y)) return 'reserved-blue';
-    if (RED_RESERVED.some(s => s.x === x && s.y === y)) return 'reserved-red';
-    return '';
-  }
-
-  function setLearningSides(sides){
-    state.learningSides = new Set(Array.isArray(sides) ? sides : []);
-  }
-
-  function initialBoard(){
+  function canonicalState(stateLike){
+    const s = clone(stateLike);
+    s.pieces.sort((a,b) => a.id.localeCompare(b.id));
     return {
-      turn: 'BLUE',
-      phase: 'MOVE',
-      moveNumber: 1,
-      pieces: [
-        {id:'pmpfnkxpm1', pieceType:'KING', color:'BLUE', rotation:0, x:4, y:0},
-        {id:'pmpfnl4j03', pieceType:'KING', color:'RED', rotation:0, x:5, y:7},
-        {id:'pmpfqugdq4', pieceType:'DEFENDER', color:'RED', rotation:0, x:4, y:7},
-        {id:'pmpfquhvx5', pieceType:'DEFENDER', color:'RED', rotation:0, x:6, y:7},
-        {id:'pmpfqunnp6', pieceType:'DEFENDER', color:'BLUE', rotation:2, x:5, y:0},
-        {id:'pmpfquoqi7', pieceType:'DEFENDER', color:'BLUE', rotation:2, x:3, y:0},
-        {id:'pmpfqvc388', pieceType:'SWITCH', color:'BLUE', rotation:0, x:5, y:3},
-        {id:'pmpfqvfrb9', pieceType:'SWITCH', color:'BLUE', rotation:1, x:4, y:3},
-        {id:'pmpfqvl06a', pieceType:'SWITCH', color:'RED', rotation:0, x:4, y:4},
-        {id:'pmpfqvre4b', pieceType:'SWITCH', color:'RED', rotation:1, x:5, y:4},
-        {id:'pmpfqwdqec', pieceType:'LASER', color:'RED', rotation:2, x:0, y:7},
-        {id:'pmpfqy5dve', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:2, y:0},
-        {id:'pmpfqya0pf', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:2, y:3},
-        {id:'pmpfqyd1rg', pieceType:'DEFLECTOR', color:'BLUE', rotation:1, x:2, y:4},
-        {id:'pmpfqz0jlj', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:0, y:3},
-        {id:'pmpfqz7fpk', pieceType:'DEFLECTOR', color:'RED', rotation:3, x:0, y:4},
-        {id:'pmpfqzj2ul', pieceType:'DEFLECTOR', color:'BLUE', rotation:3, x:7, y:1},
-        {id:'pmpfr0e5km', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:6, y:2},
-        {id:'pmpfr0t7zn', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:7, y:4},
-        {id:'pmpfr0ww1o', pieceType:'DEFLECTOR', color:'RED', rotation:3, x:7, y:3},
-        {id:'pmpfr18esp', pieceType:'DEFLECTOR', color:'BLUE', rotation:1, x:9, y:3},
-        {id:'pmpfr1bjtq', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:9, y:4},
-        {id:'pmpfr2ek5s', pieceType:'DEFLECTOR', color:'BLUE', rotation:2, x:3, y:5},
-        {id:'pmpfr2sl8u', pieceType:'DEFLECTOR', color:'RED', rotation:1, x:2, y:6},
-        {id:'pmpfr337lv', pieceType:'DEFLECTOR', color:'RED', rotation:0, x:7, y:7},
-        {id:'pmpfr69imw', pieceType:'LASER', color:'BLUE', rotation:0, x:9, y:0},
-      ]
+      turn: s.turn,
+      moveNumber: s.moveNumber,
+      winner: s.winner,
+      lastLaserPath: s.lastLaserPath,
+      lastLaserColor: s.lastLaserColor,
+      pieces: s.pieces.map(p => ({
+        id: p.id,
+        pieceType: p.pieceType,
+        color: p.color,
+        rotation: normalizeRotation(p.rotation || 0),
+        x: p.x,
+        y: p.y
+      }))
     };
   }
 
-  function makeLine(text, cls=''){
-    const d = document.createElement('div');
-    d.className = `line ${cls}`.trim();
-    d.textContent = text;
-    return d;
-  }
-  function log(text, cls='muted'){
-    els.log.appendChild(makeLine(text, cls));
-    while (els.log.children.length > 240) els.log.removeChild(els.log.firstChild);
-    els.log.scrollTop = els.log.scrollHeight;
+  function encodeState(st){
+    const s = canonicalState(st);
+    const out = [];
+    for (const p of s.pieces){
+      out.push(p.x / 9, p.y / 7, normalizeRotation(p.rotation) / 3);
+      out.push(p.pieceType === 'KING' ? 1 : 0, p.pieceType === 'DEFENDER' ? 1 : 0, p.pieceType === 'DEFLECTOR' ? 1 : 0, p.pieceType === 'SWITCH' ? 1 : 0, p.pieceType === 'LASER' ? 1 : 0);
+      out.push(p.color === 'BLUE' ? 1 : 0, p.color === 'RED' ? 1 : 0);
+      out.push(1);
+    }
+    out.push(s.turn === 'BLUE' ? 1 : 0, s.turn === 'RED' ? 1 : 0);
+    out.push(Math.min(1, s.moveNumber / 100));
+    out.push(s.winner === 'BLUE' ? 1 : 0, s.winner === 'RED' ? 1 : 0, s.winner ? 1 : 0);
+    out.push(s.lastLaserColor === 'BLUE' ? 1 : 0, s.lastLaserColor === 'RED' ? 1 : 0);
+    return Float32Array.from(out);
   }
 
-  function setStatus(mode, phase){
-    els.modeLabel.textContent = mode;
-    els.phaseText.textContent = `Phase: ${phase}`;
+  function encodeAction(action, st){
+    const a = [];
+    const piece = action.pieceId ? st.pieces.find(p => p.id === action.pieceId) : null;
+    const typeNames = ['move','swap','rotate','fire'];
+    for (const t of typeNames) a.push(action.type === t ? 1 : 0);
+    if (piece){
+      a.push(piece.pieceType === 'KING' ? 1 : 0, piece.pieceType === 'DEFENDER' ? 1 : 0, piece.pieceType === 'DEFLECTOR' ? 1 : 0, piece.pieceType === 'SWITCH' ? 1 : 0, piece.pieceType === 'LASER' ? 1 : 0);
+      a.push(piece.color === 'BLUE' ? 1 : 0, piece.color === 'RED' ? 1 : 0);
+      a.push(normalizeRotation(piece.rotation || 0) / 3);
+      a.push(piece.x / 9, piece.y / 7);
+    } else {
+      a.push(0,0,0,0,0,0,0,0,0,0);
+    }
+    a.push((action.x ?? -1) / 9, (action.y ?? -1) / 7);
+    a.push((action.dx ?? 0) / 1, (action.dy ?? 0) / 1);
+    a.push(action.delta ? action.delta / 3 : 0);
+    return Float32Array.from(a);
   }
 
-  function getPieceChar(piece){
-    const rot = normalizeRotation(piece.rotation);
-    return ROTATION_TABLE[piece.pieceType]?.[rot] || '?';
+  // --- Small policy network: state+action -> logit ---
+  // One hidden layer, ReLU, trained with terminal-only policy gradients.
+  function createModel(inputDim, hiddenDim=128){
+    const rand = () => (Math.random() - 0.5) * 0.08;
+    const W1 = new Float32Array(inputDim * hiddenDim);
+    const b1 = new Float32Array(hiddenDim);
+    const W2 = new Float32Array(hiddenDim);
+    let b2 = 0;
+    for (let i = 0; i < W1.length; i++) W1[i] = rand();
+    for (let i = 0; i < W2.length; i++) W2[i] = rand();
+
+    function forward(x){
+      const h = new Float32Array(hiddenDim);
+      for (let j = 0; j < hiddenDim; j++){
+        let sum = b1[j];
+        const off = j;
+        for (let i = 0; i < inputDim; i++) sum += x[i] * W1[i * hiddenDim + j];
+        h[j] = sum > 0 ? sum : 0;
+      }
+      let y = b2;
+      for (let j = 0; j < hiddenDim; j++) y += h[j] * W2[j];
+      return { h, y };
+    }
+
+    function applyAdam(grads, opt){
+      const { lr, beta1, beta2, eps } = opt;
+      const step = opt.step = (opt.step || 0) + 1;
+      const corr1 = 1 - Math.pow(beta1, step);
+      const corr2 = 1 - Math.pow(beta2, step);
+      const upd = (p, g, m, v) => {
+        m[p] = beta1 * m[p] + (1 - beta1) * g[p];
+        v[p] = beta2 * v[p] + (1 - beta2) * g[p] * g[p];
+        const mHat = m[p] / corr1;
+        const vHat = v[p] / corr2;
+        return lr * mHat / (Math.sqrt(vHat) + eps);
+      };
+      for (let i = 0; i < W1.length; i++) W1[i] -= upd(i, grads.dW1, opt.mW1, opt.vW1);
+      for (let i = 0; i < b1.length; i++) b1[i] -= upd(i, grads.db1, opt.mb1, opt.vb1);
+      for (let i = 0; i < W2.length; i++) W2[i] -= upd(i, grads.dW2, opt.mW2, opt.vW2);
+      b2 -= lr * grads.db2;
+      return b2;
+    }
+
+    return { inputDim, hiddenDim, W1, b1, W2, get b2(){ return b2; }, set b2(v){ b2 = v; }, forward, applyAdam };
+  }
+
+  function makeAdam(model, lr){
+    return {
+      lr, beta1:0.9, beta2:0.999, eps:1e-8,
+      step:0,
+      mW1:new Float32Array(model.W1.length), vW1:new Float32Array(model.W1.length),
+      mb1:new Float32Array(model.b1.length), vb1:new Float32Array(model.b1.length),
+      mW2:new Float32Array(model.W2.length), vW2:new Float32Array(model.W2.length)
+    };
+  }
+
+  let optim = null;
+
+  function concatStateAction(stateFeat, actionFeat){
+    const x = new Float32Array(stateFeat.length + actionFeat.length);
+    x.set(stateFeat, 0); x.set(actionFeat, stateFeat.length);
+    return x;
+  }
+
+  function scoreAction(stateFeat, actionFeat){
+    return model.forward(concatStateAction(stateFeat, actionFeat));
+  }
+
+  function legalMoves(piece, st){
+    const moves = [];
+    if (!piece || piece.color !== st.turn || piece.pieceType === 'LASER') return moves;
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++){
+      if (dx === 0 && dy === 0) continue;
+      const nx = piece.x + dx, ny = piece.y + dy;
+      if (!inBounds(nx, ny)) continue;
+      if (isReservedSquare(nx, ny, piece.color)) continue;
+      const occ = pieceAt(nx, ny, st.pieces);
+      if (!occ){
+        moves.push({ type:'move', pieceId:piece.id, x:nx, y:ny, dx, dy });
+      } else if (piece.pieceType === 'SWITCH' && (occ.pieceType === 'DEFLECTOR' || occ.pieceType === 'DEFENDER')){
+        if (!isReservedSquare(piece.x, piece.y, occ.color)) moves.push({ type:'swap', pieceId:piece.id, x:nx, y:ny, dx, dy });
+      }
+    }
+    if (piece.pieceType !== 'KING'){
+      moves.push({ type:'rotate', pieceId:piece.id, delta:3, dx:0, dy:0 });
+      moves.push({ type:'rotate', pieceId:piece.id, delta:1, dx:0, dy:0 });
+    }
+    return moves;
+  }
+
+  function legalActions(st){
+    const actions = [];
+    for (const p of st.pieces){
+      if (p.color !== st.turn || p.pieceType === 'LASER') continue;
+      actions.push(...legalMoves(p, st));
+    }
+    actions.push({ type:'fire' });
+    return actions;
   }
 
   function interactWithLaser(piece, incomingDir){
     const typeMap = INTERACTION_MAP[piece.pieceType];
-    if (!typeMap) return { kind:'stop', destroyed:false };
-    const outcome = typeMap[normalizeRotation(piece.rotation)]?.[incomingDir];
-    if (!outcome) return { kind:'stop', destroyed:false };
-    if (outcome.action === 'reflect') return { kind:'reflect', destroyed:false, reflected: outcome.nextDir };
-    if (outcome.action === 'block') return { kind:'stop', blocked:true, destroyed:false };
-    if (outcome.action === 'destroy') return { kind:'stop', destroyed:true };
-    return { kind:'stop', destroyed:false };
+    const out = typeMap?.[normalizeRotation(piece.rotation || 0)]?.[incomingDir];
+    if (!out) return { kind:'stop', destroyed:false };
+    if (out.isDestroyed) return { kind:'stop', destroyed:true };
+    if (out.reflect !== null) return { kind:'reflect', reflected:out.reflect, destroyed:false };
+    return { kind:'stop', destroyed:false, blocked:true };
   }
 
-  function resolveLaserVector(x, y, dir, pieces, path = [], seen = new Set()){
-    if (!inBounds(x, y)) return { path, hit: null, looped: false };
+  function resolveLaserVector(x, y, dir, pieces, path=[], seen=new Set()){
+    if (!inBounds(x,y)) return { path, hit:null, looped:false };
     const key = `${x},${y},${dir}`;
-    if (seen.has(key)) return { path, hit: null, looped: true };
+    if (seen.has(key)) return { path, hit:null, looped:true };
     seen.add(key);
-    path.push({x, y, dir});
-
-    const piece = getPieceAt(pieces, x, y);
+    path.push({x,y,dir});
+    const piece = pieceAt(x,y,pieces);
     if (!piece) return resolveLaserVector(x + DIRS[dir].dx, y + DIRS[dir].dy, dir, pieces, path, seen);
-
     const outcome = interactWithLaser(piece, dir);
-    if (outcome.kind === 'reflect') {
-      const nextDir = outcome.reflected;
-      return resolveLaserVector(x + DIRS[nextDir].dx, y + DIRS[nextDir].dy, nextDir, pieces, path, seen);
+    if (outcome.kind === 'reflect'){
+      const nd = outcome.reflected;
+      return resolveLaserVector(x + DIRS[nd].dx, y + DIRS[nd].dy, nd, pieces, path, seen);
     }
-    return { path, hit: { piece, blocked: !!outcome.blocked, destroyed: !!outcome.destroyed }, looped: false };
+    return { path, hit:{ piece, destroyed:!!outcome.destroyed, blocked:!!outcome.blocked }, looped:false };
   }
 
-  function renderBoard(board, laserPath = [], cursor = null, persist = true){
-    if (persist) state.currentBoard = board;
-    const pieces = getBoardPieces(board);
-    const grid = Array.from({ length: 8 }, () => Array(10).fill(null));
-    for (const p of pieces) if (p && Number.isFinite(p.x)) grid[p.y][p.x] = p;
-
-    els.board.innerHTML = '';
-    const currentTurn = board.turn || 'BLUE';
-
-    // FIX 6: Update DOM elements correctly instead of creating a nested duplicate header
-    els.turnIndicator.className = `statusDot ${state.autoTrain ? 'live' : (state.paused ? 'paused' : 'idle')}`;
-    els.turnText.innerHTML = `<strong style="color:var(--bright)">Turn:</strong> <span style="color:${currentTurn === 'BLUE' ? 'var(--blue)' : 'var(--red)'}">${currentTurn}</span> - ${board.status ? board.status : 'Ready'}`;
-
-    for (let y = 7; y >= 0; y--){
-      const row = document.createElement('div');
-      row.className = 'gridRow';
-      for (let x = 0; x < 10; x++){
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        const reserved = getReservedClass(x, y);
-        if (reserved) cell.classList.add(reserved);
-        const p = grid[y][x];
-        if (state.selected && state.selected.x === x && state.selected.y === y) cell.classList.add('selected');
-        if (cursor && cursor.x === x && cursor.y === y) cell.classList.add('cursor');
-        if (state.targetHint && state.targetHint.x === x && state.targetHint.y === y) cell.classList.add('target');
-        cell.addEventListener('click', () => onBoardClick(x, y));
-        if (p){
-          cell.textContent = getPieceChar(p);
-          cell.classList.add(p.color === 'RED' ? 'piece-red' : 'piece-blue');
-        } else {
-          const seg = laserPath.find(s => s.x === x && s.y === y);
-          if (seg){
-            const syms = ['^','>','v','<'];
-            cell.textContent = syms[seg.dir];
-            cell.classList.add('laser-path');
-          } else {
-            cell.textContent = '·';
-            cell.style.color = 'rgba(255,255,255,.18)';
-          }
-        }
-        row.appendChild(cell);
-      }
-      els.board.appendChild(row);
+  function fireLaser(st){
+    const shooter = st.pieces.find(p => p.pieceType === 'LASER' && p.color === st.turn);
+    if (!shooter) return { path:[], hit:null, looped:false };
+    const dir = normalizeRotation(shooter.rotation || 0);
+    const startX = shooter.x + DIRS[dir].dx;
+    const startY = shooter.y + DIRS[dir].dy;
+    const result = resolveLaserVector(startX, startY, dir, st.pieces, [{x:shooter.x,y:shooter.y,dir}]);
+    st.lastLaserPath = result.path;
+    st.lastLaserColor = shooter.color;
+    if (result.hit && result.hit.destroyed){
+      const victim = result.hit.piece;
+      st.pieces = st.pieces.filter(p => p.id !== victim.id);
+      if (victim.pieceType === 'KING') st.winner = st.turn;
     }
-
-    updateStatsUI();
-    if (persist) saveBoardState(board);
+    st.turn = enemyColor(st.turn);
+    st.moveNumber += 1;
+    return result;
   }
 
-  function updateStatsUI(){
-    els.episodeLabel.textContent = String(state.episode);
-    els.blueQCount.textContent = Object.keys(state.q.BLUE).length.toLocaleString();
-    els.redQCount.textContent = Object.keys(state.q.RED).length.toLocaleString();
-    const bw = state.stats.blueWins, rw = state.stats.redWins, total = Math.max(1, bw + rw);
-    els.blueWinRate.textContent = `${Math.round((bw / total) * 100)}%`;
-    els.redWinRate.textContent = `${Math.round((rw / total) * 100)}%`;
-    els.blueReturn.textContent = String(Math.round(state.currentEpisodeReward.BLUE));
-    els.redReturn.textContent = String(Math.round(state.currentEpisodeReward.RED));
-    els.wakeLabel.textContent = state.trainingWakeLock ? 'On' : 'Off';
-  }
-
-  function saveQ(side){
-    // FIX 3: Catch LocalStorage Quota Exceeded silently failing your training
-    try {
-      localStorage.setItem(side === 'BLUE' ? STORAGE.blue : STORAGE.red, JSON.stringify(state.q[side]));
-      localStorage.setItem(STORAGE.meta, JSON.stringify(state.stats));
-    } catch (err) {
-      if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-        pauseAll();
-        log(`Storage limit reached for ${side} Q-table! Download JSON and clear tables to continue.`, 'bad');
-      }
+  function applyAction(st, action){
+    if (st.winner) return false;
+    if (action.type === 'fire'){
+      fireLaser(st);
+      return true;
     }
-  }
-  function saveBoardState(board){
-    try{ localStorage.setItem(STORAGE.board, JSON.stringify(board)); } catch {}
-  }
-  function loadQ(side){
-    try{
-      const raw = localStorage.getItem(side === 'BLUE' ? STORAGE.blue : STORAGE.red);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
-  }
-  function loadMeta(){
-    try{
-      const raw = localStorage.getItem(STORAGE.meta);
-      const meta = raw ? JSON.parse(raw) : null;
-      return meta || { blueWins:0, redWins:0, draws:0, episodes:0 };
-    } catch { return { blueWins:0, redWins:0, draws:0, episodes:0 }; }
-  }
-  function loadHistory(){
-    try{
-      const raw = localStorage.getItem(STORAGE.history);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  }
-  function saveHistory(){
-    try{ localStorage.setItem(STORAGE.history, JSON.stringify(state.history.slice(-500))); } catch {}
-  }
-
-  function boardStateKey(board, side){
-    const pieces = [...getBoardPieces(board)]
-      .map(p => `${p.color[0]}${p.pieceType[0]}${normalizeRotation(p.rotation)}@${p.x},${p.y}`)
-      .sort()
-      .join('|');
-    return `${side}|${board.turn}|${board.phase}|${pieces}`;
-  }
-
-  function generateActions(board, side){
-    const pieces = getBoardPieces(board).filter(p => p.color === side);
-    const actions = [];
-    for (const p of pieces){
-      if (p.pieceType !== 'LASER'){
-        for (let dx = -1; dx <= 1; dx++){
-          for (let dy = -1; dy <= 1; dy++){
-            if (dx === 0 && dy === 0) continue;
-            const nx = p.x + dx, ny = p.y + dy;
-            if (!inBounds(nx, ny)) continue;
-            if (isReservedSquare(nx, ny, side)) continue;
-            const target = getPieceAt(pieces.concat(getBoardPieces(board).filter(x => x.color !== side)), nx, ny);
-            if (!target){
-              actions.push({ kind:'move', pieceId:p.id, from:{x:p.x,y:p.y}, to:{x:nx,y:ny}, label:`move ${p.pieceType} -> ${nx},${ny}` });
-            } else if (p.pieceType === 'SWITCH' && (target.pieceType === 'DEFLECTOR' || target.pieceType === 'DEFENDER') && !isReservedSquare(p.x, p.y, target.color)){
-              actions.push({ kind:'swap', pieceId:p.id, from:{x:p.x,y:p.y}, to:{x:nx,y:ny}, label:`swap ${p.pieceType} <-> ${target.pieceType}` });
-            }
-          }
-        }
-      }
-
-      if (p.pieceType !== 'KING'){
-        const r1 = normalizeRotation((p.rotation || 0) + 1);
-        const r2 = normalizeRotation((p.rotation || 0) - 1);
-        
-        // FIX 1: Allow valid laser rotation by separating conditions properly
-        const canRotateR1 = p.pieceType !== 'LASER' || 
-          (p.color === 'BLUE' && (r1 === 0 || r1 === 3)) || 
-          (p.color === 'RED' && (r1 === 1 || r1 === 2));
-          
-        const canRotateR2 = p.pieceType !== 'LASER' || 
-          (p.color === 'BLUE' && (r2 === 0 || r2 === 3)) || 
-          (p.color === 'RED' && (r2 === 1 || r2 === 2));
-
-        if (canRotateR1) actions.push({ kind:'rotate', pieceId:p.id, delta: 1, label:`rotate ${p.pieceType} CW` });
-        if (canRotateR2) actions.push({ kind:'rotate', pieceId:p.id, delta: -1, label:`rotate ${p.pieceType} CCW` });
-      }
+    const piece = st.pieces.find(p => p.id === action.pieceId);
+    if (!piece || piece.color !== st.turn || piece.pieceType === 'LASER') return false;
+    if (action.type === 'rotate'){
+      if (piece.pieceType === 'KING') return false;
+      piece.rotation = normalizeRotation((piece.rotation || 0) + action.delta);
+      fireLaser(st);
+      return true;
     }
-    actions.push({ kind:'fire', label:'fire / end turn' });
-    return actions;
-  }
-
-  function applyAction(board, action, record = null){
-    const next = deepClone(board);
-    const pieces = getBoardPieces(next);
-    let event = { action: action.kind, side: board.turn, label: action.label };
-
-    if (action.kind === 'move' || action.kind === 'swap'){
-      const piece = pieces.find(p => p.id === action.pieceId);
-      if (!piece) return { board, event: { ...event, invalid: true } };
-      const target = getPieceAt(pieces, action.to.x, action.to.y);
-      if (action.kind === 'swap' && target){
+    if (action.type === 'move' || action.type === 'swap'){
+      const occ = pieceAt(action.x, action.y, st.pieces);
+      if (occ){
+        if (piece.pieceType !== 'SWITCH') return false;
+        if (!(occ.pieceType === 'DEFLECTOR' || occ.pieceType === 'DEFENDER')) return false;
+        if (isReservedSquare(piece.x, piece.y, occ.color)) return false;
         const ox = piece.x, oy = piece.y;
-        target.x = ox; target.y = oy;
-        piece.x = action.to.x; piece.y = action.to.y;
-        event.swap = true;
+        piece.x = action.x; piece.y = action.y;
+        occ.x = ox; occ.y = oy;
       } else {
-        piece.x = action.to.x; piece.y = action.to.y;
+        if (isReservedSquare(action.x, action.y, piece.color)) return false;
+        if (Math.max(Math.abs(action.x - piece.x), Math.abs(action.y - piece.y)) !== 1) return false;
+        piece.x = action.x; piece.y = action.y;
       }
-    } else if (action.kind === 'rotate'){
-      const piece = pieces.find(p => p.id === action.pieceId);
-      if (!piece || piece.pieceType === 'KING') return { board, event: { ...event, invalid: true } };
-      const nextRot = normalizeRotation((piece.rotation || 0) + action.delta);
-      if (piece.pieceType === 'LASER'){
-        if (piece.color === 'BLUE' && !(nextRot === 0 || nextRot === 3)) return { board, event: { ...event, invalid: true } };
-        if (piece.color === 'RED' && !(nextRot === 1 || nextRot === 2)) return { board, event: { ...event, invalid: true } };
-      }
-      piece.rotation = nextRot;
-      event.rotation = nextRot;
+      fireLaser(st);
+      return true;
+    }
+    return false;
+  }
+
+  function episodeDone(st){ return !!st.winner; }
+
+  function selectAction(st, temp){
+    const acts = legalActions(st);
+    const sFeat = encodeState(st);
+    const logits = [];
+    for (const a of acts){
+      const aFeat = encodeAction(a, st);
+      logits.push(scoreAction(sFeat, aFeat).y);
+    }
+    const max = Math.max(...logits);
+    const scaled = logits.map(v => (v - max) / Math.max(0.0001, temp));
+    const exps = scaled.map(v => Math.exp(Math.max(-50, Math.min(50, v))));
+    const sum = exps.reduce((a,b) => a+b, 0) || 1;
+    const probs = exps.map(v => v / sum);
+    let r = Math.random(), idx = 0;
+    for (; idx < probs.length - 1; idx++){ if ((r -= probs[idx]) <= 0) break; }
+    const entropy = -probs.reduce((acc,p) => acc + (p > 0 ? p * Math.log(p) : 0), 0);
+    return { acts, probs, idx, entropy, sFeat };
+  }
+
+  function trainOneEpisode(){
+    const st = START_STATE();
+    const trajectory = [];
+    const maxPlies = 220;
+    let plies = 0;
+    while (!episodeDone(st) && plies++ < maxPlies){
+      const { acts, probs, idx, entropy, sFeat } = selectAction(st, parseFloat(ui.temp.value));
+      const action = acts[idx];
+      trajectory.push({ color: st.turn, sFeat, action, acts, probs, entropy });
+      applyAction(st, action);
+    }
+    if (!st.winner) st.winner = null;
+    const reward = st.winner === 'BLUE' ? 1 : st.winner === 'RED' ? -1 : 0;
+    const terminalRewardBlue = reward;
+    const terminalRewardRed = -reward;
+    let batchEntropy = 0;
+
+    // Terminal-only policy gradient: all steps receive only the final outcome.
+    for (const step of trajectory){
+      const actorReward = step.color === 'BLUE' ? terminalRewardBlue : terminalRewardRed;
+      batchEntropy += step.entropy;
+      updatePolicy(step.sFeat, step.acts, step.action, actorReward, step.probs, parseFloat(ui.ent.value));
     }
 
-    const shooter = pieces.find(p => p && p.pieceType === 'LASER' && p.color === board.turn);
-    let laserPath = [];
-    let victim = null;
-    if (shooter){
-      const startDir = normalizeRotation(shooter.rotation);
-      const trace = resolveLaserVector(shooter.x + DIRS[startDir].dx, shooter.y + DIRS[startDir].dy, startDir, pieces);
-      laserPath = trace.path;
-      if (trace.hit && trace.hit.destroyed){
-        victim = trace.hit.piece;
-        next.pieces = pieces.filter(p => p.id !== victim.id);
-        event.victim = deepClone(victim);
-      }
-    }
-
-    if (victim && victim.pieceType === 'KING'){
-      next.status = `${victim.color === 'RED' ? 'BLUE' : 'RED'}_WIN`;
-    } else if (victim){
-      next.status = 'CONTINUE';
-    }
-
-    next.turn = board.turn === 'RED' ? 'BLUE' : 'RED';
-    next.moveNumber = (board.moveNumber || 0) + 1;
-    next.phase = 'MOVE';
-    return { board: next, event, laserPath, victim };
+    episodes += 1;
+    if (st.winner === 'BLUE') blueWins += 1;
+    returnSum += reward;
+    entropySum += trajectory.length ? batchEntropy / trajectory.length : 0;
+    actionCount += trajectory.length;
+    pushLog(`Episode ${episodes}: ${st.winner ?? 'draw'} | plies=${trajectory.length} | reward=${reward.toFixed(0)} | blue=${blueWins}/${episodes}`);
+    state.lastLaserPath = st.lastLaserPath;
+    state.lastLaserColor = st.lastLaserColor;
+    state.turn = st.turn;
+    state.winner = st.winner;
+    state.moveNumber = st.moveNumber;
+    state.pieces = st.pieces;
+    render();
+    refreshStats();
   }
 
-  function terminalReward(winnerColor, profile){
-    return profile === 'human' ? 10000 : 1000;
-  }
-
-  function currentSideIsHuman(){
-    return state.activeMode === 'human' && state.humanSide === state.currentBoard.turn;
-  }
-
-  function boardOutcome(board){
-    if (!board?.status) return null;
-    if (board.status.endsWith('_WIN')) return board.status.split('_')[0];
-    return null;
-  }
-
-  async function maybeAutoPlayOpponentAfterHumanMove(){
-    if (state.activeMode !== 'human' || state.paused || state.stepRunning || !state.currentBoard) return;
-    if (boardOutcome(state.currentBoard)) return;
-    if (state.currentBoard.turn === state.humanSide) return;
-
-    await sleep(180);
-
-    if (!state.currentBoard || state.paused || state.stepRunning || boardOutcome(state.currentBoard)) return;
-    if (state.currentBoard.turn === state.humanSide) return;
-
-    const board = deepClone(state.currentBoard);
-    const side = board.turn;
-    const action = selectAction(board, side, clamp(parseFloat(els.epsilonInput.value || '0.15'), 0, 1));
-    if (!action) {
-      log(`No legal AI response available for ${side}.`, 'bad');
-      return;
-    }
-
-    await performAction(action, 'ai');
-    state.selected = null;
-    state.targetHint = null;
-    els.selectionHint.textContent = 'No selection.';
-    renderBoard(state.currentBoard, [], null, true);
-  }
-
-  function qGet(side, key){
-    const table = state.q[side];
-    if (!table[key]) table[key] = {};
-    return table[key];
-  }
-
-  function getQValue(side, stateKey, actionKey){
-    const slot = state.q[side][stateKey];
-    return slot && Number.isFinite(slot[actionKey]) ? slot[actionKey] : 0;
-  }
-
-  function setQValue(side, stateKey, actionKey, value){
-    if (!state.q[side][stateKey]) state.q[side][stateKey] = {};
-    state.q[side][stateKey][actionKey] = value;
-  }
-
-  function serializeAction(a){
-    if (a.kind === 'move' || a.kind === 'swap') return `${a.kind}:${a.pieceId}:${a.to.x},${a.to.y}`;
-    if (a.kind === 'rotate') return `${a.kind}:${a.pieceId}:${a.delta}`;
-    return a.kind;
-  }
-
-  function selectAction(board, side, epsilon){
-    const actions = generateActions(board, side);
-    const sKey = boardStateKey(board, side);
-    if (!actions.length) return null;
-    if (rand() < epsilon) return choice(actions);
-
-    let bestV = -Infinity;
-    let bestActions = [];
-    for (const a of actions){
-      const v = getQValue(side, sKey, serializeAction(a));
-      if (v > bestV + 1e-12){
-        bestV = v;
-        bestActions = [a];
-      } else if (Math.abs(v - bestV) <= 1e-12){
-        bestActions.push(a);
-      }
-    }
-    return choice(bestActions.length ? bestActions : actions);
-  }
-
-  async function requestWakeLock(){
-    try{
-      if ('wakeLock' in navigator){
-        state.trainingWakeLock = await navigator.wakeLock.request('screen');
-        state.trainingWakeLock.addEventListener('release', () => {
-          state.trainingWakeLock = null;
-          updateStatsUI();
-        });
-      }
-    } catch (err) {
-      log(`Wake Lock unavailable: ${err.message}`, 'warn');
-    }
-    updateStatsUI();
-  }
-
-  async function releaseWakeLock(){
-    try{
-      if (state.trainingWakeLock){
-        await state.trainingWakeLock.release();
-      }
-    } catch {}
-    state.trainingWakeLock = null;
-    updateStatsUI();
-  }
-
-  function saveMeta(){
-    try{ localStorage.setItem(STORAGE.meta, JSON.stringify(state.stats)); } catch {}
-  }
-
-  function resetEpisodeBoard(){
-    state.currentBoard = initialBoard();
-    state.selected = null;
-    state.targetHint = null;
-    state.currentTrajectory = [];
-    state.episodeTrajectories = { BLUE: [], RED: [] };
-    state.currentEpisodeReward = { BLUE: 0, RED: 0 };
-    state.boardHistory = [];
-    renderBoard(state.currentBoard, [], null, true);
-    log('Board reset to initial arrangement.', 'good');
-  }
-
-  function recordTransition(side, boardBefore, action, boardAfter, terminal = false){
-    const transition = {
-      side,
-      s: boardStateKey(boardBefore, side),
-      a: serializeAction(action),
-      action: deepClone(action),
-      boardBefore: deepClone(boardBefore),
-      boardAfter: deepClone(boardAfter),
-      terminal,
-      reward: 0
-    };
-    state.currentTrajectory.push(transition);
-    if (state.learningSides?.has(side)){
-      state.episodeTrajectories[side].push(transition);
-    }
-  }
-
-  function applyDiscountedReturns(winnerColor, rewardScale){
-    const gamma = clamp(parseFloat(els.gammaInput.value || '0.965'), 0.01, 0.999);
-    const alpha = clamp(parseFloat(els.alphaInput.value || '0.12'), 0.001, 1);
-    const baseWin = terminalReward(winnerColor, rewardScale);
-    const baseLose = -baseWin;
-
-    const updates = {
-      BLUE: state.learningSides?.has('BLUE') ? (winnerColor === 'BLUE' ? baseWin : baseLose) : 0,
-      RED: state.learningSides?.has('RED') ? (winnerColor === 'RED' ? baseWin : baseLose) : 0
+  function updatePolicy(sFeat, acts, chosenAction, reward, probs, entropyCoef){
+    // Recompute forward passes and gradients for the chosen action only.
+    const lr = parseFloat(ui.lr.value);
+    optim.lr = lr;
+    const grads = {
+      dW1: new Float32Array(model.W1.length),
+      db1: new Float32Array(model.b1.length),
+      dW2: new Float32Array(model.W2.length),
+      db2: 0
     };
 
-    for (const side of ['BLUE', 'RED']){
-      if (!state.learningSides?.has(side)) continue;
-      const traj = state.episodeTrajectories?.[side] || [];
-      if (!traj.length) continue;
+    const scored = acts.map(a => {
+      const aFeat = encodeAction(a, { pieces: state.pieces, turn: state.turn });
+      return { action:a, aFeat, pack:model.forward(concatStateAction(sFeat, aFeat)) };
+    });
 
-      let G = updates[side];
-      for (let i = traj.length - 1; i >= 0; i--){
-        const tr = traj[i];
-        const old = getQValue(side, tr.s, tr.a);
-        const updated = old + alpha * (G - old);
-        setQValue(side, tr.s, tr.a, updated);
-        G *= gamma;
+    const logits = scored.map(s => s.pack.y);
+    const max = Math.max(...logits);
+    const exps = logits.map(v => Math.exp(Math.max(-50, Math.min(50, v - max))));
+    const sum = exps.reduce((a,b)=>a+b,0) || 1;
+    const ps = exps.map(v => v / sum);
+
+    const chosenIdx = acts.findIndex(a => JSON.stringify(a) === JSON.stringify(chosenAction));
+    if (chosenIdx < 0) return;
+
+    // Loss = -reward * log pi(a) - entropyCoef * H(pi)
+    // We do simple gradient on logits then backprop through the MLP.
+    const dLogits = ps.map((p, i) => p - (i === chosenIdx ? 1 : 0));
+    for (let i = 0; i < dLogits.length; i++) dLogits[i] *= reward;
+    if (entropyCoef > 0){
+      for (let i = 0; i < dLogits.length; i++) dLogits[i] += entropyCoef * (Math.log(ps[i] + 1e-8) + 1);
+    }
+
+    for (let k = 0; k < scored.length; k++){
+      const { pack } = scored[k];
+      const x = concatStateAction(sFeat, scored[k].aFeat);
+      const coeff = dLogits[k];
+      const h = pack.h;
+      // Output layer
+      for (let j = 0; j < model.W2.length; j++) grads.dW2[j] += coeff * h[j];
+      grads.db2 += coeff;
+      // Hidden layer
+      const dh = new Float32Array(model.hiddenDim);
+      for (let j = 0; j < model.hiddenDim; j++){
+        const g = coeff * model.W2[j] * (h[j] > 0 ? 1 : 0);
+        dh[j] = g;
+        grads.db1[j] += g;
       }
-      state.currentEpisodeReward[side] += updates[side];
-    }
-
-    els.blueReturn.textContent = String(Math.round(state.currentEpisodeReward.BLUE));
-    els.redReturn.textContent = String(Math.round(state.currentEpisodeReward.RED));
-    saveQ('BLUE'); saveQ('RED');
-  }
-
-  async function animateLaser(board, shooterColor, victimPiece = null){
-    const pieces = getBoardPieces(board).slice();
-    if (victimPiece && !pieces.some(p => p.id === victimPiece.id)) pieces.push(victimPiece);
-    const shooter = pieces.find(p => p.pieceType === 'LASER' && p.color === shooterColor);
-    if (!shooter) return;
-    const startDir = normalizeRotation(shooter.rotation);
-    const trace = resolveLaserVector(shooter.x + DIRS[startDir].dx, shooter.y + DIRS[startDir].dy, startDir, pieces);
-    renderBoard(board, [], state.selected, false);
-    await sleep(220);
-    renderBoard(board, trace.path, state.selected, false);
-    await sleep(360);
-  }
-
-  function chooseManualAction(board){
-    const side = state.manualSide === 'BOTH' ? board.turn : state.manualSide;
-    const actions = generateActions(board, side);
-    if (!actions.length) return null;
-    if (state.selected){
-      const selPiece = getPieceAt(getBoardPieces(board), state.selected.x, state.selected.y);
-      const moveActions = actions.filter(a => (a.kind === 'move' || a.kind === 'swap') && a.from.x === state.selected.x && a.from.y === state.selected.y);
-      if (moveActions.length) return moveActions[0];
-      const rotActions = actions.filter(a => a.kind === 'rotate' && a.pieceId === selPiece?.id);
-      if (rotActions.length) return rotActions[0];
-    }
-    return actions[0];
-  }
-
-  async function performAction(action, origin = 'system'){
-    if (!state.currentBoard || state.stepRunning) return;
-    const boardBefore = deepClone(state.currentBoard);
-
-    // FIX 5: Save each turn for undoing functionality
-    state.boardHistory.push(deepClone(boardBefore));
-
-    const side = boardBefore.turn;
-    const profile = els.rewardProfile.value;
-
-    state.stepRunning = true;
-    try{
-      const res = applyAction(state.currentBoard, action);
-      if (res.event.invalid){
-        log(`Rejected action: ${action.label || action.kind}`, 'bad');
-        return;
+      // Input layer
+      for (let i = 0; i < x.length; i++){
+        const base = i * model.hiddenDim;
+        const xv = x[i];
+        for (let j = 0; j < model.hiddenDim; j++) grads.dW1[base + j] += dh[j] * xv;
       }
+    }
 
-      state.currentBoard = res.board;
-      recordTransition(side, boardBefore, action, state.currentBoard);
+    model.applyAdam(grads, optim);
+  }
 
-      if (action.kind === 'move' || action.kind === 'swap') log(`${side}: ${action.label}`, 'good');
-      else if (action.kind === 'rotate') log(`${side}: ${action.label}`, 'good');
-      else log(`${side}: ${action.label}`, 'muted');
+  function evaluateQuick(){
+    const st = START_STATE();
+    let plies = 0;
+    while (!episodeDone(st) && plies++ < 120){
+      const { acts, probs, idx } = selectAction(st, 0.01);
+      applyAction(st, acts[idx]);
+    }
+    return st.winner;
+  }
 
-      renderBoard(state.currentBoard, [], state.selected, true);
-      await animateLaser(state.currentBoard, side, res.victim || null);
+  function refreshStats(){
+    ui.episodes.textContent = String(episodes);
+    ui.winRate.textContent = episodes ? `${(100 * blueWins / episodes).toFixed(1)}%` : '0%';
+    ui.avgReturn.textContent = episodes ? (returnSum / episodes).toFixed(2) : '0.00';
+    ui.entropy.textContent = actionCount ? (entropySum / episodes).toFixed(2) : '0.00';
+    ui.turnTag.textContent = state.turn || 'BLUE';
+    ui.turnTag.className = `tag ${state.turn === 'BLUE' ? 'blue' : 'red'}`;
+    ui.phaseTag.textContent = state.winner ? `${state.winner} wins` : (training ? 'training' : 'idle');
+    ui.modelTag.textContent = model ? 'policy ready' : 'untrained';
+    ui.modelTag.className = `tag ${model ? 'good' : 'warn'}`;
+    const enc = canonicalState(state);
+    const preview = JSON.stringify(enc, null, 2);
+    if (preview !== lastEncodingPreview){
+      lastEncodingPreview = preview;
+      ui.encodingBox.textContent = preview;
+    }
+  }
 
-      renderBoard(state.currentBoard, res.laserPath || [], state.selected, true);
+  function pushLog(text){
+    const line = document.createElement('div');
+    line.textContent = text;
+    ui.log.prepend(line);
+    while (ui.log.childElementCount > 100) ui.log.removeChild(ui.log.lastChild);
+  }
 
-      const winner = boardOutcome(state.currentBoard);
-      if (winner){
-        state.stats[`${winner.toLowerCase()}Wins`] += 1;
-        state.stats.episodes += 1;
-        state.episode += 1;
-        applyDiscountedReturns(winner, profile);
-        els.lastWinner.textContent = winner;
-        state.history.push({
-          episode: state.episode,
-          winner,
-          profile,
-          length: state.currentTrajectory.length,
-          board: deepClone(state.currentBoard),
-          time: new Date().toISOString()
-        });
-        saveHistory(); saveMeta();
-        log(`Episode ${state.episode}: ${winner} wins. Discount propagated across ${state.currentTrajectory.length} turns.`, 'warn');
+  function svgEl(name, attrs={}){
+    const node = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [k,v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+    return node;
+  }
+
+  function drawBoard(){
+    const svg = ui.board;
+    svg.innerHTML = '';
+    const defs = svgEl('defs');
+    const filter = svgEl('filter', { id:'glow', x:'-50%', y:'-50%', width:'200%', height:'200%' });
+    filter.appendChild(svgEl('feGaussianBlur', { stdDeviation:'8', result:'blur' }));
+    const merge = svgEl('feMerge');
+    merge.appendChild(svgEl('feMergeNode', { in:'blur' }));
+    merge.appendChild(svgEl('feMergeNode', { in:'SourceGraphic' }));
+    filter.appendChild(merge);
+    defs.appendChild(filter);
+    svg.appendChild(defs);
+
+    for (let y = 0; y < H; y++){
+      for (let x = 0; x < W; x++){
+        const reserved = RES_BLUE.some(s => s.x === x && s.y === y) ? 'blue' : RES_RED.some(s => s.x === x && s.y === y) ? 'red' : null;
+        svg.appendChild(svgEl('rect', {
+          x:x*CELL, y:y*CELL, width:CELL, height:CELL,
+          fill: reserved === 'blue' ? 'rgba(3,233,244,.08)' : reserved === 'red' ? 'rgba(244,67,54,.08)' : 'rgba(0,0,0,.30)',
+          stroke:'rgba(255,255,255,.07)', 'stroke-width':'1'
+        }));
       }
-    } finally {
-      state.stepRunning = false;
+    }
+
+    for (let x = 0; x < W; x++) svg.appendChild(svgEl('text', { x:x*CELL + 50, y:18, 'text-anchor':'middle', fill:'rgba(255,255,255,.35)', 'font-size':'14' })).textContent = x;
+    for (let y = 0; y < H; y++) svg.appendChild(svgEl('text', { x:12, y:y*CELL + 58, fill:'rgba(255,255,255,.35)', 'font-size':'14' })).textContent = y;
+
+    if (state.lastLaserPath?.length){
+      const pts = state.lastLaserPath.map(p => `${p.x * CELL + 50},${p.y * CELL + 50}`).join(' ');
+      const beamColor = state.lastLaserColor === 'RED' ? '#ff003c' : '#00f0ff';
+      svg.appendChild(svgEl('polyline', {
+        points: pts,
+        fill:'none',
+        stroke: beamColor,
+        'stroke-linecap':'round',
+        'stroke-linejoin':'round',
+        'stroke-width':'10',
+        filter:'url(#glow)'
+      }));
+      svg.appendChild(svgEl('polyline', {
+        points: pts,
+        fill:'none',
+        stroke:'#ffffff',
+        'stroke-linecap':'round',
+        'stroke-linejoin':'round',
+        'stroke-width':'3'
+      }));
+    }
+
+    const sel = selectedId ? state.pieces.find(p => p.id === selectedId) : null;
+    if (sel){
+      svg.appendChild(svgEl('rect', { x:sel.x*CELL + 6, y:sel.y*CELL + 6, width:CELL - 12, height:CELL - 12, rx:'12', fill:'none', stroke:'rgba(3,233,244,.8)', 'stroke-width':'3' }));
+    }
+
+    for (const p of state.pieces){
+      const x = p.x * CELL, y = p.y * CELL;
+      const isBlue = p.color === 'BLUE';
+      const g = svgEl('g');
+      const base = svgEl('circle', { cx:x+50, cy:y+50, r:33, fill:isBlue ? 'rgba(3,233,244,.18)' : 'rgba(244,67,54,.18)', stroke:isBlue ? 'rgba(3,233,244,.85)' : 'rgba(244,67,54,.85)', 'stroke-width':'3' });
+      g.appendChild(base);
+      const inner = svgEl('circle', { cx:x+50, cy:y+50, r:23, fill:isBlue ? 'rgba(3,233,244,.35)' : 'rgba(244,67,54,.35)' });
+      g.appendChild(inner);
+      const text = svgEl('text', { x:x+50, y:y+56, 'text-anchor':'middle', fill:'#fff', 'font-size':'24', 'font-weight':'900' });
+      text.textContent = labelFor(p);
+      g.appendChild(text);
+      const r = svgEl('text', { x:x+50, y:y+76, 'text-anchor':'middle', fill:'rgba(255,255,255,.78)', 'font-size':'11' });
+      r.textContent = `R${normalizeRotation(p.rotation||0)}`;
+      g.appendChild(r);
+      const n = svgEl('text', { x:x+50, y:y+18, 'text-anchor':'middle', fill:'rgba(255,255,255,.6)', 'font-size':'10' });
+      n.textContent = p.pieceType;
+      g.appendChild(n);
+      svg.appendChild(g);
+    }
+
+    if (state.winner){
+      svg.appendChild(svgEl('rect', { x:145, y:250, width:710, height:300, rx:'24', fill:'rgba(0,0,0,.84)', stroke:'rgba(255,255,255,.13)' }));
+      svg.appendChild(svgEl('text', { x:500, y:382, 'text-anchor':'middle', fill:'#fff', 'font-size':'52', 'font-weight':'900' })).textContent = `${state.winner} WINS`;
+      svg.appendChild(svgEl('text', { x:500, y:442, 'text-anchor':'middle', fill:'rgba(255,255,255,.72)', 'font-size':'20' })).textContent = 'Terminal reward assigned only at the end of the match';
     }
   }
 
-  async function runOneTurn(){
-    if (!state.currentBoard) resetEpisodeBoard();
-    const board = deepClone(state.currentBoard);
-    const turn = board.turn;
-    let action = null;
-
-    if (state.activeMode === 'manual'){
-      if (state.manualSide !== 'BOTH' && state.manualSide !== turn){
-        return;
-      }
-      log('Manual mode is click-driven. Use the board and action buttons.', 'muted');
-      return;
-    } else if (state.activeMode === 'human'){
-      if (turn === state.humanSide){
-        log(`Waiting for the human move on ${turn}.`, 'muted');
-        return;
-      } else {
-        action = selectAction(board, turn, clamp(parseFloat(els.epsilonInput.value || '0.15'), 0, 1));
-      }
-    } else {
-      action = selectAction(board, turn, clamp(parseFloat(els.epsilonInput.value || '0.15'), 0, 1));
-    }
-
-    if (!action){
-      log('No legal actions available.', 'bad');
-      return;
-    }
-
-    await performAction(action);
-    state.selected = null;
-    els.selectionHint.textContent = 'No selection.';
-    renderBoard(state.currentBoard, [], null, true);
+  function render(){
+    drawBoard();
+    refreshStats();
   }
 
-  async function runEpisode(force = false){
-    resetEpisodeBoard();
-    const maxTurns = 160;
-    for (let i = 0; i < maxTurns; i++){
-      if (state.paused || (!force && !state.autoTrain)) break;
-      const winner = boardOutcome(state.currentBoard);
-      if (winner) break;
-      await runOneTurn();
-      await sleep(45);
-    }
-    const winner = boardOutcome(state.currentBoard);
-    if (!winner){
-      state.stats.draws += 1;
-      state.stats.episodes += 1;
-      state.episode += 1;
-      log(`Episode ${state.episode}: draw / turn limit reached.`, 'warn');
-      saveMeta();
-    }
-    updateStatsUI();
-    saveQ('BLUE'); saveQ('RED');
+  function setPhase(text){ ui.phaseTag.textContent = text; }
+
+  function initModel(){
+    const dummyState = encodeState(START_STATE());
+    const dummyAction = encodeAction({type:'fire'}, START_STATE());
+    const inputDim = dummyState.length + dummyAction.length;
+    model = createModel(inputDim, 128);
+    optim = makeAdam(model, parseFloat(ui.lr.value));
   }
 
-  async function autoLoop(){
-    // FIX 4: Implement locking to avoid overlapping parallel instances
-    if (!state.autoTrain || state.paused || state.loopRunning) return;
-    state.loopRunning = true;
-    
-    await requestWakeLock();
-    while (state.autoTrain && !state.paused){
-      await runEpisode();
-      await sleep(20);
-    }
-    if (!state.autoTrain) await releaseWakeLock();
-    
-    state.loopRunning = false;
-  }
-
-  function setMode(mode){
-    state.activeMode = mode;
-    state.paused = false;
-    els.modeLabel.textContent = mode === 'selfplay' ? 'Self-play' : mode === 'human' ? 'Human match' : mode === 'manual' ? 'Manual' : 'Idle';
-    updateStatsUI();
-  }
-
-  async function startSelfPlay(){
-    setMode('selfplay');
-    state.autoTrain = true;
-    state.humanSide = 'BLUE';
-    setLearningSides(['BLUE', 'RED']);
-    els.rewardProfile.value = 'twin';
-    resetEpisodeBoard();
-    log('Twin self-play started.', 'good');
-    autoLoop();
-  }
-
-  async function startHuman(side){
-    setMode('human');
-    state.autoTrain = false;
-    state.paused = false;
-    state.humanSide = side;
-    state.manualSide = side;
-    setLearningSides([side === 'BLUE' ? 'RED' : 'BLUE']);
-    els.rewardProfile.value = 'human';
-    resetEpisodeBoard();
-    state.selected = null;
-    state.targetHint = null;
-    log(`Human vs twin started. Human controls ${side}.`, 'good');
-    await requestWakeLock();
-
-    // If the AI owns the opening turn, let it move immediately.
-    if (state.currentBoard && state.currentBoard.turn !== state.humanSide) {
-      queueMicrotask(() => { runOneTurn(); });
-    }
-  }
-
-  async function startManualBoth(){
-    setMode('manual');
-    state.autoTrain = false;
-    state.manualSide = 'BOTH';
-    setLearningSides([]);
-    els.manualSide.value = 'BOTH';
-    resetEpisodeBoard();
-    log('Manual both-sides mode started.', 'warn');
-    await requestWakeLock();
-  }
-
-  function pauseAll(){
-    state.paused = true;
-    state.autoTrain = false;
-    setStatus('Paused', 'idle');
-    releaseWakeLock();
-    log('Training paused.', 'warn');
-    els.wakeLabel.textContent = 'Off';
-  }
-
-  function clearTables(){
-    state.q.BLUE = {};
-    state.q.RED = {};
-    state.stats = { blueWins:0, redWins:0, draws:0, episodes:0 };
-    state.episode = 0;
-    saveQ('BLUE'); saveQ('RED'); saveMeta();
-    updateStatsUI();
-    log('Q-tables cleared.', 'warn');
-  }
-
-  function exportJSON(side){
+  function saveModel(){
+    if (!model) return;
     const payload = {
-      side,
-      version: '1.0.0',
-      exportedAt: new Date().toISOString(),
-      hyperparameters: {
-        gamma: parseFloat(els.gammaInput.value || '0.965'),
-        alpha: parseFloat(els.alphaInput.value || '0.12'),
-        epsilon: parseFloat(els.epsilonInput.value || '0.15'),
-        rewardProfile: els.rewardProfile.value
-      },
-      stats: state.stats,
-      qTable: state.q[side]
+      version: VERSION,
+      inputDim: model.inputDim,
+      hiddenDim: model.hiddenDim,
+      W1: Array.from(model.W1), b1: Array.from(model.b1), W2: Array.from(model.W2), b2: model.b2,
+      episodes, blueWins, returnSum, entropySum, actionCount
     };
-    return payload;
+    localStorage.setItem(VERSION, JSON.stringify(payload));
+    pushLog('model saved to localStorage');
   }
 
-  function download(name, obj){
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
+  function loadModel(){
+    const raw = localStorage.getItem(VERSION);
+    if (!raw){ pushLog('no saved model found'); return; }
+    const p = JSON.parse(raw);
+    model = createModel(p.inputDim, p.hiddenDim);
+    model.W1.set(p.W1); model.b1.set(p.b1); model.W2.set(p.W2); model.b2 = p.b2;
+    optim = makeAdam(model, parseFloat(ui.lr.value));
+    episodes = p.episodes || episodes;
+    blueWins = p.blueWins || blueWins;
+    returnSum = p.returnSum || returnSum;
+    entropySum = p.entropySum || entropySum;
+    actionCount = p.actionCount || actionCount;
+    pushLog('model loaded');
+    render();
+  }
+
+  function exportWeights(){
+    if (!model) return;
+    const blob = new Blob([JSON.stringify({
+      version: VERSION,
+      inputDim: model.inputDim,
+      hiddenDim: model.hiddenDim,
+      W1: Array.from(model.W1), b1: Array.from(model.b1), W2: Array.from(model.W2), b2: model.b2
+    }, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    a.href = url; a.download = 'laser-chess-policy.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function updatePolicyPreview(side='BLUE'){
-    const q = state.q[side];
-    const keys = Object.keys(q).slice(0, 3);
-    if (!keys.length){
-      els.policyPreview.textContent = `${side} policy is empty. Train or import JSON first.`;
-      return;
+  async function runTrainBatch(n){
+    if (!model) initModel();
+    training = true;
+    setPhase('training');
+    for (let i = 0; i < n; i++){
+      trainOneEpisode();
+      if (i % 5 === 0) render();
+      if (!training) break;
+      await new Promise(r => setTimeout(r, 0));
     }
-    const preview = keys.map(k => {
-      const entries = q[k];
-      const top = Object.entries(entries).sort((a,b) => b[1] - a[1])[0];
-      return `${k}\n  top: ${top ? `${top[0]} = ${top[1].toFixed(3)}` : 'none'}`;
-    }).join('\n\n');
-    els.policyPreview.textContent = preview;
+    training = false;
+    setPhase('idle');
+    render();
   }
 
-  async function onBoardClick(x, y){
-    // FIX 2: Block manual moves while AI self-play is occurring to protect episode trajectory data
-    if (state.activeMode === 'selfplay') {
-      log("Manual intervention disabled during self-play.", "warn");
-      return;
-    }
-
-    if (!state.currentBoard) return;
-    const pieces = getBoardPieces(state.currentBoard);
-    const clicked = getPieceAt(pieces, x, y);
-    const turn = state.currentBoard.turn;
-
-    if (state.activeMode === 'human' && turn !== state.humanSide){
-      log(`It is ${turn}'s turn; the human is ${state.humanSide}.`, 'warn');
-      return;
-    }
-    if (state.activeMode === 'manual' && state.manualSide !== 'BOTH' && turn !== state.manualSide){
-      log(`Manual side is ${state.manualSide}; current turn is ${turn}.`, 'warn');
-      return;
-    }
-
-    if (!state.selected){
-      if (clicked && (state.activeMode === 'selfplay' || clicked.color === turn || state.manualSide === 'BOTH')){
-        state.selected = { x, y };
-        state.targetHint = null;
-        els.selectionHint.textContent = `Selected ${clicked.color} ${clicked.pieceType} at ${x},${y}`;
-        log(`Selected ${clicked.color} ${clicked.pieceType} at ${x},${y}`, 'muted');
-        renderBoard(state.currentBoard, [], state.selected, false);
-      } else {
-        log(`No piece at ${x},${y}.`, 'warn');
-      }
-      return;
-    }
-
-    if (state.selected.x === x && state.selected.y === y){
-      state.selected = null;
-      state.targetHint = null;
-      els.selectionHint.textContent = 'No selection.';
-      renderBoard(state.currentBoard, [], null, false);
-      return;
-    }
-
-    const selectedPiece = getPieceAt(pieces, state.selected.x, state.selected.y);
-    if (!selectedPiece){
-      state.selected = null;
-      state.targetHint = null;
-      renderBoard(state.currentBoard, [], null, false);
-      return;
-    }
-
-    const legalActions = generateActions(state.currentBoard, turn).filter(a => a.from && a.from.x === state.selected.x && a.from.y === state.selected.y);
-    const targetAction = legalActions.find(a => (a.kind === 'move' || a.kind === 'swap') && a.to.x === x && a.to.y === y) || null;
-
-    if (targetAction){
-      await performAction(targetAction, 'human');
-      state.selected = null;
-      state.targetHint = null;
-      els.selectionHint.textContent = 'No selection.';
-      renderBoard(state.currentBoard, [], null, true);
-      await maybeAutoPlayOpponentAfterHumanMove();
-      return;
-    }
-
-    if (clicked && clicked.color === selectedPiece.color && clicked.color === turn){
-      state.selected = { x, y };
-      state.targetHint = null;
-      els.selectionHint.textContent = `Selected ${clicked.color} ${clicked.pieceType} at ${x},${y}`;
-      renderBoard(state.currentBoard, [], state.selected, false);
-      return;
-    }
-
-    log('That square is not a legal destination.', 'bad');
+  async function playOneGame(){
+    if (!model) initModel();
+    training = false;
+    setPhase('evaluating');
+    const winner = evaluateQuick();
+    pushLog(`eval game: ${winner ?? 'draw'}`);
+    setPhase('idle');
+    render();
   }
 
-  async function rotateSelected(delta){
-    if (state.activeMode === 'selfplay') {
-      log("Manual intervention disabled during self-play.", "warn");
-      return;
-    }
-
-    if (!state.selected || !state.currentBoard) return;
-    const turn = state.currentBoard.turn;
-    if (state.activeMode === 'human' && turn !== state.humanSide) return;
-    if (state.activeMode === 'manual' && state.manualSide !== 'BOTH' && turn !== state.manualSide) return;
-    const piece = getPieceAt(getBoardPieces(state.currentBoard), state.selected.x, state.selected.y);
-    if (!piece) return;
-    const action = { kind:'rotate', pieceId:piece.id, delta, label:`rotate ${piece.pieceType} ${delta > 0 ? 'CW' : 'CCW'}` };
-    await performAction(action);
-    await maybeAutoPlayOpponentAfterHumanMove();
+  function resetAll(){
+    localStorage.removeItem(VERSION);
+    initModel();
+    episodes = 0; blueWins = 0; returnSum = 0; entropySum = 0; actionCount = 0;
+    const fresh = START_STATE();
+    Object.assign(state, fresh);
+    selectedId = null;
+    ui.log.innerHTML = '';
+    pushLog('model reset');
+    render();
   }
 
-  async function fireTurn(){
-    if (state.activeMode === 'selfplay') {
-      log("Manual intervention disabled during self-play.", "warn");
-      return;
-    }
+  // UI wiring
+  ui.lr.addEventListener('input', () => { ui.lrVal.textContent = Number(ui.lr.value).toFixed(4); if (optim) optim.lr = parseFloat(ui.lr.value); });
+  ui.temp.addEventListener('input', () => { ui.tempVal.textContent = Number(ui.temp.value).toFixed(2); });
+  ui.ent.addEventListener('input', () => { ui.entVal.textContent = Number(ui.ent.value).toFixed(3); });
+  ui.train1.addEventListener('click', () => runTrainBatch(1));
+  ui.train100.addEventListener('click', () => runTrainBatch(100));
+  ui.play1k.addEventListener('click', () => playOneGame());
+  ui.pauseBtn.addEventListener('click', () => { training = false; setPhase('paused'); pushLog('paused'); });
+  ui.resetBtn.addEventListener('click', resetAll);
+  ui.saveBtn.addEventListener('click', saveModel);
+  ui.loadBtn.addEventListener('click', loadModel);
+  ui.exportBtn.addEventListener('click', exportWeights);
 
-    if (!state.currentBoard) return;
-    const turn = state.currentBoard.turn;
-    if (state.activeMode === 'human' && turn !== state.humanSide) return;
-    if (state.activeMode === 'manual' && state.manualSide !== 'BOTH' && turn !== state.manualSide) return;
-    const action = { kind:'fire', label:'fire / end turn' };
-    await performAction(action);
-    await maybeAutoPlayOpponentAfterHumanMove();
-  }
-
-  function undoMove(){
-    // FIX 5: Use boardHistory array rather than complete episode match history
-    if (!state.boardHistory || state.boardHistory.length === 0){
-      log('No saved turn state to undo to.', 'warn');
-      return;
-    }
-    state.currentBoard = state.boardHistory.pop();
-    state.selected = null;
-    renderBoard(state.currentBoard, [], null, true);
-    log('Reverted one turn.', 'good');
-  }
-
-  function handleImport(side){
-    els.importFile.dataset.side = side;
-    els.importFile.click();
-  }
-
-  async function importJSONFile(file, side){
-    const text = await file.text();
-    const obj = JSON.parse(text);
-    if (!obj.qTable) throw new Error('Missing qTable field.');
-    state.q[side] = obj.qTable;
-    saveQ(side);
-    updateStatsUI();
-    updatePolicyPreview(side);
-    log(`Imported ${side} policy.`, 'good');
-  }
-
-  // Tabs
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-      updatePolicyPreview();
-    });
-  });
-
-  // Buttons
-  els.btnSelfPlay.addEventListener('click', async () => {
-    startSelfPlay();
-  });
-  els.btnHumanBlue.addEventListener('click', () => startHuman('BLUE'));
-  els.btnHumanRed.addEventListener('click', () => startHuman('RED'));
-  els.btnManualBoth.addEventListener('click', () => startManualBoth());
-  els.btnPause.addEventListener('click', () => pauseAll());
-  els.btnReset.addEventListener('click', () => { resetEpisodeBoard(); state.selected = null; state.manualSelectionInfo = ''; });
-  els.btnStepEpisode.addEventListener('click', async () => {
-    state.autoTrain = false;
-    state.paused = false;
-    setMode('idle');
-    await requestWakeLock();
-    await runEpisode(true);
-    await releaseWakeLock();
-  });
-  els.btnAutoTrain.addEventListener('click', async () => {
-    state.paused = false;
-    state.autoTrain = true;
-    setMode('selfplay');
-    autoLoop();
-  });
-  els.btnStopAuto.addEventListener('click', () => pauseAll());
-  els.btnStepTurn.addEventListener('click', async () => {
-    state.autoTrain = false;
-    state.paused = false;
-    await requestWakeLock();
-    await runOneTurn();
-    await releaseWakeLock();
-  });
-  els.btnManualPlay.addEventListener('click', async () => {
-    state.autoTrain = false;
-    state.paused = false;
-    state.manualSide = els.manualSide.value;
-    setLearningSides([]);
-    setMode('manual');
-    resetEpisodeBoard();
-    await requestWakeLock();
-    log(`Manual match started as ${state.manualSide}.`, 'warn');
-  });
-  els.btnCancelManual.addEventListener('click', () => pauseAll());
-  els.btnRotateCCW.addEventListener('click', () => rotateSelected(-1));
-  els.btnRotateCW.addEventListener('click', () => rotateSelected(1));
-  els.btnFire.addEventListener('click', () => fireTurn());
-  els.btnUndo.addEventListener('click', () => undoMove());
-  els.btnBlueJson.addEventListener('click', () => download('blue_qtable.json', exportJSON('BLUE')));
-  els.btnRedJson.addEventListener('click', () => download('red_qtable.json', exportJSON('RED')));
-  els.btnMatchJson.addEventListener('click', () => download('match_history.json', { history: state.history, meta: state.stats, board: state.currentBoard }));
-  els.btnClearTables.addEventListener('click', () => clearTables());
-  els.btnImportBlue.addEventListener('click', () => handleImport('BLUE'));
-  els.btnImportRed.addEventListener('click', () => handleImport('RED'));
-  els.importFile.addEventListener('change', async () => {
-    const file = els.importFile.files?.[0];
-    const side = els.importFile.dataset.side || 'BLUE';
-    if (!file) return;
-    try {
-      await importJSONFile(file, side);
-    } catch (err) {
-      log(`Import failed: ${err.message}`, 'bad');
-    } finally {
-      els.importFile.value = '';
-    }
-  });
-
-  // keyboard shortcuts
-  window.addEventListener('keydown', (e) => {
-    if (e.target && ['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
-    if (e.key === ' ') { e.preventDefault(); fireTurn(); }
-    if (e.key === 'Escape') { state.selected = null; state.targetHint = null; renderBoard(state.currentBoard); }
-    if (e.key === 'q') { pauseAll(); }
-    if (e.key.toLowerCase() === 'r') rotateSelected(1);
-    if (e.key.toLowerCase() === 'l') rotateSelected(-1);
-  });
-
-  // keep wake lock alive on visibility changes
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && state.autoTrain && !state.paused) {
-      await requestWakeLock();
-    }
-  });
-
-  function hydrate(){
-    state.currentBoard = initialBoard();
-    state.selected = null;
-    state.targetHint = null;
-    setLearningSides(['BLUE', 'RED']);
-    renderBoard(state.currentBoard, [], null, true);
-    updatePolicyPreview('BLUE');
-    setMode('idle');
-    log('Arena loaded on a fresh starting board.', 'good');
-    log('Choose self-play, human-vs-twin, or manual both-sides.', 'muted');
-    log('Two separate Q-tables are ready, and exports are available from the policy panel.', 'muted');
-  }
-
-  hydrate();
+  // Keep the board aligned with the game encoding, not some improvised fan-fiction of a board game.
+  ui.encodingBox.textContent = JSON.stringify(canonicalState(state), null, 2);
+  ui.lrVal.textContent = Number(ui.lr.value).toFixed(4);
+  ui.tempVal.textContent = Number(ui.temp.value).toFixed(2);
+  ui.entVal.textContent = Number(ui.ent.value).toFixed(3);
+  initModel();
+  render();
+  pushLog('ready: terminal-only RL initialized');
 })();
 </script>
 </body>

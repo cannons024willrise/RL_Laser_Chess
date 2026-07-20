@@ -248,6 +248,11 @@
   function enemyColor(c){ return c === 'BLUE' ? 'RED' : 'BLUE'; }
   function inBounds(x,y){ return x >= 0 && x < W && y >= 0 && y < H; }
   function isReservedSquare(x,y,color){ return (color === 'BLUE' ? RES_BLUE : RES_RED).some(s => s.x === x && s.y === y); }
+  function canEnterSquare(pieceColor, x, y) {
+    // Own reserved squares allowed; opponent reserved squares forbidden.
+    if (pieceColor === 'BLUE') return !RES_RED.some(s => s.x === x && s.y === y);
+    return !RES_BLUE.some(s => s.x === x && s.y === y);
+  }
   function pieceAt(x,y,pieces=state.pieces){ return pieces.find(p => p.x === x && p.y === y) || null; }
   function pieceImageKey(piece){ return `${piece.color}_${piece.pieceType}_${piece.rotation}`; }
   function labelFor(piece){ return piece.pieceType[0]; }
@@ -382,7 +387,7 @@
       if (dx === 0 && dy === 0) continue;
       const nx = piece.x + dx, ny = piece.y + dy;
       if (!inBounds(nx, ny)) continue;
-      if (isReservedSquare(nx, ny, piece.color)) continue;
+      if (!canEnterSquare(piece.color, nx, ny)) continue;
       const occ = pieceAt(nx, ny, st.pieces);
       if (!occ){
         moves.push({ type:'move', pieceId:piece.id, x:nx, y:ny, dx, dy });
@@ -470,12 +475,12 @@
       if (occ){
         if (piece.pieceType !== 'SWITCH') return false;
         if (!(occ.pieceType === 'DEFLECTOR' || occ.pieceType === 'DEFENDER')) return false;
-        if (isReservedSquare(piece.x, piece.y, occ.color)) return false;
+        if (!canEnterSquare(occ.color, piece.x, piece.y)) return false;
         const ox = piece.x, oy = piece.y;
         piece.x = action.x; piece.y = action.y;
         occ.x = ox; occ.y = oy;
       } else {
-        if (isReservedSquare(action.x, action.y, piece.color)) return false;
+        if (!canEnterSquare(piece.color, action.x, action.y)) return false;
         if (Math.max(Math.abs(action.x - piece.x), Math.abs(action.y - piece.y)) !== 1) return false;
         piece.x = action.x; piece.y = action.y;
       }
